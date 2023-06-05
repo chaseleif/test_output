@@ -242,14 +242,12 @@ class DiffWindow:
             rpos[0] = len(rhs) - lastheight + 1
       # scroll up
       elif ch == curses.KEY_UP:
-        if scroll('left') and lpos[0] >= 0: lpos[0] -= 1
-        if scroll('right') and rpos[0] >= 0: rpos[0] -= 1
+        if scroll('left'): lpos[0] -= 1
+        if scroll('right'): rpos[0] -= 1
       # scroll down
       elif ch == curses.KEY_DOWN:
-        if scroll('left') and lastheight - 2 < len(lhs):
-          if lpos[0] < len(lhs) - lastheight + 1: lpos[0] += 1
-        if scroll('right') and lastheight - 2 < len(rhs):
-          if rpos[0] < len(rhs) - lastheight + 1: rpos[0] += 1
+        if scroll('left'): lpos[0] += 1
+        if scroll('right'): rpos[0] += 1
       # scroll left
       elif ch == curses.KEY_LEFT:
         if scroll('left') and lpos[1] > 0:
