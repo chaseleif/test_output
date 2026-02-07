@@ -217,8 +217,14 @@ if __name__ == '__main__':
                 help='Program arguments, specify input filenames with @in')
 
   args = vars(parser.parse_args())
-  if 'help' in args or 'testpath' not in args or 'program' not in args:
+  if 'help' in args or 'program' not in args or 'testpath' not in args:
     parser.print_help()
+    sys.exit(0)
+  if not os.path.isfile(args['program']):
+    print('ERROR:',args['program'],'does not exist')
+    sys.exit(0)
+  if not os.path.isdir(args['testpath']):
+    print('ERROR: Path',args['testpath'],'is not valid')
     sys.exit(0)
 
   # Collect the input files in a dictionary
@@ -235,6 +241,10 @@ if __name__ == '__main__':
       if not os.path.isfile(expFile): expFile = None
     # set the full path to the input file to equal expected output file
     cases[args['testpath'] + inFile] = expFile
+
+  if len(cases) == 0:
+    print('ERROR: No test cases found in',args['testpath'])
+    sys.exit(0)
 
   cmd = args['program']
   if 'args' in args: cmd += ' ' + ' '.join(args['args'])

@@ -31,10 +31,11 @@ sys.dont_write_bytecode = False
   A class to be used in the manner "with DiffWindow() as win:"
     this usage keeps curses from messing up the terminal on exceptions/etc.
 
-  Alternate usage, instantiating a class, is win = DiffWindow(unsafe=True)
+  Alternate usage, instantiating a class, is win = DiffWindow()
+    ** Using the context manager is safer as it ensures curses is cleaned up **
     (the method which initializes curses is initscr)
     (the method which restores the shell is stopscr)
-    initscr will be called automatically when needed if unsafe=True
+    initscr will be called automatically when needed
     stopscr will be called on __del__
 
   The "main" method, showdiff, takes 2 lists of strings like:
@@ -67,10 +68,9 @@ class DiffWindow:
   '''
   __init__
 
-    Set unsafe flag to allow usage without enter/exit
     The intended usage is as described above and in the "if name == __main__"
   '''
-  def __init__(self, unsafe=False): self.unsafe = unsafe
+  def __init__(self): pass
 
   '''
   __enter__
@@ -161,9 +161,7 @@ class DiffWindow:
     try:
       if not self.havescr: self.initscr()
     except AttributeError:
-      if self.unsafe: self.initscr()
-      else:
-        raise AssertionError('unsafe is not true and curses not initialized')
+      self.initscr()
     # remove empty lines, trailing whitespace, and tabs from lhs / rhs
     lhs = [re.sub('\t','  ',line.rstrip()) for line in lhs \
                                               if line.strip() != '']
@@ -295,15 +293,11 @@ class DiffWindow:
     try:
       if not self.havescr: self.initscr()
     except AttributeError:
-      if self.unsafe: self.initscr()
-      else:
-        raise AssertionError('unsafe is not true and curses not initialized')
+      self.initscr()
     # the title for each window
     title = 'DiffWindow - a Python curses script to compare 2 text files'
     # the body text
-    body = [['Copyright (C) 2023 Chase Phelps',
-              'Licensed under the GNU GPL v3 license'],
-            ['Choose an option from the menu below:']]
+    body = [['Choose an option from the menu below:']]
     # the choices
     choices = ['Select the left-hand side file',
                 'Select the right-hand side file',
@@ -393,8 +387,14 @@ if __name__ == '__main__':
   else:
     with DiffWindow() as win: win.mainmenu()
   # class usage
-  #win = DiffWindow(unsafe=True)
-  #win.initscr() # optional, called automatically in showdiff if unsafe=True
+  '''
+    If curses is not cleaned up properly
+    You will be left with an unusable terminal
+    You must call win.stopscr() you the win object must be deleted
+    Deleting the object can be done manually, with del
+  '''
+  #win = DiffWindow()
+  #win.initscr() # optional, called automatically in showdiff
   #win.showdiff(lhs, rhs)
   #win.stopscr() # called in del if initscr has been called
 
