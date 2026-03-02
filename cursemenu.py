@@ -307,12 +307,16 @@ def drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt=0, halfgap=2):
     if lstop != lpos[1]:
       if i+lpos[0] >= 0 and i+lpos[0] < len(lhs):
         scr.insstr(i, 0, lhs[lpos[0]+i][lpos[1]:lstop], color)
+      elif i+lpos[0] == -1:
+        scr.insstr(i, 1, 'START', infocolor)
       elif i+lpos[0] == len(lhs):
         scr.insstr(i, 1, 'END', infocolor)
     # draw rhs if we have a row here
     if rstop != rpos[1]:
       if i+rpos[0] >= 0 and i+rpos[0] < len(rhs):
         scr.insstr(i, rstart, rhs[rpos[0]+i][rpos[1]:rstop], color)
+      elif i+rpos[0] == -1:
+        scr.insstr(i, width-6, 'START', infocolor)
       elif i+rpos[0] == len(rhs):
         scr.insstr(i, width-4, 'END', infocolor)
   scr.refresh()
