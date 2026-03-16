@@ -195,14 +195,11 @@ def dotests(cases, program, runstr):
         with DiffWindow() as win: win.showdiff(lhs, rhs)
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(add_help=False,
-                                    description=sys.argv[0] + \
+  parser = argparse.ArgumentParser( description=sys.argv[0] + \
                                       ' - a Python script to test a program',
                                     argument_default=argparse.SUPPRESS,
                                     prog=sys.argv[0],
                                     epilog='Required: testpath, program')
-  parser.add_argument('-h', '--help', action='store_true',
-                      help='Show this help message.')
   parser.add_argument('--testpath', metavar='<path>',
                       help='Path containing test input files')
   parser.add_argument('--testext', metavar='<ext>', default='',
@@ -217,15 +214,18 @@ if __name__ == '__main__':
                 help='Program arguments, specify input filenames with @in')
 
   args = vars(parser.parse_args())
-  if 'help' in args or 'program' not in args or 'testpath' not in args:
+  if 'program' not in args or 'testpath' not in args:
     parser.print_help()
-    sys.exit(0)
+    sys.exit(1)
   if not os.path.isfile(args['program']):
-    print('ERROR:',args['program'],'does not exist')
-    sys.exit(0)
+    print('ERROR: Program',args['program'],'does not exist')
+    sys.exit(1)
+  if not os.access(args['program'], os.X_OK):
+    print('ERROR: Program',args['program'],'is not executable')
+    sys.exit(1)
   if not os.path.isdir(args['testpath']):
     print('ERROR: Path',args['testpath'],'is not valid')
-    sys.exit(0)
+    sys.exit(1)
 
   # Collect the input files in a dictionary
   # key = inFile, value = (expFile or None)
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 
   if len(cases) == 0:
     print('ERROR: No test cases found in',args['testpath'])
-    sys.exit(0)
+    sys.exit(1)
 
   cmd = args['program']
   if 'args' in args: cmd += ' ' + ' '.join(args['args'])
