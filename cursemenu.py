@@ -258,7 +258,11 @@ drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt, halfgap)
   The screen is cleared, strings added to screen, then refreshed
   Returns the current height, width
 '''
-def drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt=0, halfgap=2):
+def drawsplitpane(scr,
+                  lhs, lpos, rhs, rpos,
+                  highlight, paneshmt=0,
+                  ltitle='left', rtitle='right',
+                  halfgap=2):
   infocolor = curses.color_pair(2) | curses.A_BOLD
   # clear the screen
   scr.erase()
@@ -270,25 +274,25 @@ def drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt=0, halfgap=2):
   if paneshmt != 0:
     # if the rhs was shifted out of view
     if middle >= width - halfgap:
-      scr.insstr(0, 1, 'left', infocolor)
+      scr.insstr(0, 1, ltitle, infocolor)
       rstart = width
       lstop = width + lpos[1]
     # if the lhs was shifted out of view
     elif middle <= halfgap:
-      scr.insstr(0, width-6, 'right', infocolor)
+      scr.insstr(0, width-6, rtitle, infocolor)
       rstart = 0
       lstop = lpos[1]
     # otherwise the boundary is still in the middle
     else:
-      scr.insstr(0, 1, 'left', infocolor)
-      scr.insstr(0, width-6, 'right', infocolor)
+      scr.insstr(0, 1, ltitle, infocolor)
+      scr.insstr(0, width-6, rtitle, infocolor)
       rstart = middle + halfgap
       lstop = middle - halfgap + lpos[1]
   else:
     rstart = middle + halfgap
     lstop = middle - halfgap + lpos[1]
-    scr.insstr(0, 1, 'left', infocolor)
-    scr.insstr(0, width-11, 'right', infocolor)
+    scr.insstr(0, 1, ltitle, infocolor)
+    scr.insstr(0, width-11, rtitle, infocolor)
   rstop = width - rstart + rpos[1]
   # the default color is standard color
   color = curses.color_pair(0)

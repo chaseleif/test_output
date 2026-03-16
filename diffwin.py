@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import curses, re, sys
+import curses, os, re, sys
 sys.dont_write_bytecode = True
 from cursemenu import showmenu, filemenu, drawsplitpane
 sys.dont_write_bytecode = False
@@ -70,7 +70,9 @@ class DiffWindow:
 
     The intended usage is as described above and in the "if name == __main__"
   '''
-  def __init__(self): pass
+  def __init__(self, ltitle='left', rtitle='right'):
+    self.ltitle = ltitle
+    self.rtitle = rtitle
 
   '''
   __enter__
@@ -263,7 +265,8 @@ class DiffWindow:
       if repaint:
         lastheight, lastwidth = drawsplitpane(self.stdscr,
                                               lhs, lpos, rhs, rpos,
-                                              highlight, paneshmt)
+                                              highlight, paneshmt,
+                                              self.ltitle, self.rtitle)
       ch = self.stdscr.getch()
 
   '''
@@ -325,16 +328,19 @@ class DiffWindow:
         if lhs is None and ret is None: pass
         # didn't have a lhs before and have one now
         elif lhs is None and ret is not None:
-          choices[legend.index('lhs')] += ' (set to \"' + name + '\")'
+          self.ltitle = name
+          choices[legend.index('lhs')] += ' (set to \"' + self.ltitle + '\")'
         # had a filename and don't have one now, remove filename
         elif lhs is not None and ret is None:
+          self.ltitle = 'left'
           choices[legend.index('lhs')] = \
               choices[legend.index('lhs')].split(' (set to ')[0]
         # had a filename before and (may) have a different one now
         else:
+          self.ltitle = name
           choices[legend.index('lhs')] = \
               choices[legend.index('lhs')].split(' (set to ')[0]
-          choices[legend.index('lhs')] += ' (set to \"' + name + '\")'
+          choices[legend.index('lhs')] += ' (set to \"' + self.ltitle + '\")'
         lhs = ret
       # open a file to set rhs
       elif legend[ch] == 'rhs':
@@ -343,16 +349,19 @@ class DiffWindow:
         if rhs is None and ret is None: pass
         # didn't have a rhs before and have one now
         elif rhs is None and ret is not None:
-          choices[legend.index('rhs')] += ' (set to \"' + name + '\")'
+          self.rtitle = name
+          choices[legend.index('rhs')] += ' (set to \"' + self.rtitle + '\")'
         # had a filename and don't have one now, remove filename
         elif rhs is not None and ret is None:
+          self.rtitle = 'right'
           choices[legend.index('rhs')] = \
               choices[legend.index('rhs')].split(' (set to ')[0]
         # had a filename before and (may) have a different one now
         else:
+          self.rtitle = name
           choices[legend.index('rhs')] = \
               choices[legend.index('rhs')].split(' (set to ')[0]
-          choices[legend.index('rhs')] += ' (set to \"' + name + '\")'
+          choices[legend.index('rhs')] += ' (set to \"' + self.rtitle + '\")'
         rhs = ret
       # show the diff of lhs and rhs
       elif legend[ch] == 'diff':
@@ -363,7 +372,16 @@ class DiffWindow:
         elif not rhs:
           error = 'Right- side file must be selected first!'
         else:
+          ltitle = self.ltitle
+          rtitle = self.rtitle
+          self.ltitle = os.path.basename(ltitle)
+          self.rtitle = os.path.basename(rtitle)
+          if self.ltitle == self.rtitle:
+            self.ltitle = f'a/{self.ltitle}'
+            self.rtitle = f'b/{self.rtitle}'
           self.showdiff(lhs, rhs)
+          self.ltitle = ltitle
+          self.rtitle = rtitle
       # show the command information
       elif legend[ch] == 'commands':
         self.commands(title=title)
@@ -381,11 +399,19 @@ __name__ == __main__
 if __name__ == '__main__':
   if len(sys.argv) == 3:
     lhs, rhs = [], []
-    with open(sys.argv[1]) as infile: lhs = infile.readlines()
-    with open(sys.argv[2]) as infile: rhs = infile.readlines()
-    with DiffWindow() as win: win.showdiff(lhs, rhs)
+    ltitle, rtitle = sys.argv[1], sys.argv[2]
+    with open(ltitle,'r') as infile: lhs = infile.readlines()
+    with open(rtitle,'r') as infile: rhs = infile.readlines()
+    ltitle = os.path.basename(ltitle)
+    rtitle = os.path.basename(rtitle)
+    if ltitle == rtitle:
+      ltitle = f'a/{ltitle}'
+      rtitle = f'b/{rtitle}'
+    with DiffWindow(ltitle, rtitle) as win:
+      win.showdiff(lhs, rhs)
   else:
-    with DiffWindow() as win: win.mainmenu()
+    with DiffWindow() as win:
+      win.mainmenu()
   # class usage
   '''
     If curses is not cleaned up properly

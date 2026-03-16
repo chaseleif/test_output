@@ -151,7 +151,8 @@ def dotests(cases, program, runstr):
         if DiffWindow:
           confirm = input('Open ' + test + ' in curses? (y/n): ')
         if confirm == 'y':
-          with DiffWindow() as win: win.showdiff(out, exp)
+          with DiffWindow('output', 'expected') as win:
+            win.showdiff(out, exp)
         else:
           for line in difflib.context_diff(a=out, fromfile='actual',
                                             b=exp, tofile='expect'):
@@ -162,37 +163,29 @@ def dotests(cases, program, runstr):
       if DiffWindow:
         confirm = input('Open ' + test + ' in curses? (y/n): ')
       if confirm != 'y': confirm = None
-      # lhs will be all test output
-      lhs = [] if confirm else None
-      if len(output[0][1]) > 0 and output[0][1].rstrip() != '':
-        if confirm:
-          lhs.append('~~ stderr:')
-          lhs += [line.rstrip() for line in output[0][1].split('\n') \
-                                            if line.strip() != '']
-        else:
-          print('~~ stderr:')
-          print(output[0][1].strip()+'\n')
-      if len(output[0][0]) > 0 and output[0][0].rstrip() != '':
-        if confirm:
-          lhs.append('~~ stdout:')
-          lhs += [line.rstrip() for line in output[0][0].split('\n') \
-                                            if line.strip() != '']
-        else:
-          print('~~ stdout:')
-          print(output[0][0].rstrip()+'\n')
-      # rhs will be test input
-      rhs = [] if confirm else None
-      if confirm:
-        rhs.append('~~ input (' + test + '):')
-      else:
-        print('~~ input (' + test + '):')
+      # lhs will be test input
+      lhs = []
+      lhs.append('~~ input (' + test + '):')
       # the input file
       with open(inFile, 'r') as infile:
-        if confirm: rhs += [line.rstrip() for line in infile.readlines() \
-                                                        if line.strip() != '']
-        else: print(infile.read()+'\n')
+        lhs += [line.rstrip() for line in infile.readlines() \
+                              if line.strip() != '']
+      # rhs will be all test output
+      rhs = []
+      if len(output[0][1]) > 0 and output[0][1].rstrip() != '':
+        rhs.append('~~ stderr:')
+        rhs += [line.rstrip() for line in output[0][1].split('\n') \
+                              if line.strip() != '']
+      if len(output[0][0]) > 0 and output[0][0].rstrip() != '':
+        rhs.append('~~ stdout:')
+        rhs += [line.rstrip() for line in output[0][0].split('\n') \
+                              if line.strip() != '']
       if confirm:
-        with DiffWindow() as win: win.showdiff(lhs, rhs)
+        with DiffWindow('input', 'output') as win:
+          win.showdiff(lhs, rhs, 'input', 'output')
+      else:
+        print('\n'.join(lhs))
+        print('\n'.join(rhs))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser( description=sys.argv[0] + \
