@@ -182,7 +182,7 @@ def dotests(cases, program, runstr):
                               if line.strip() != '']
       if confirm:
         with DiffWindow('input', 'output') as win:
-          win.showdiff(lhs, rhs, 'input', 'output')
+          win.showdiff(lhs, rhs)
       else:
         print('\n'.join(lhs))
         print('\n'.join(rhs))
