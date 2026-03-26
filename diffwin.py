@@ -205,7 +205,7 @@ class DiffWindow:
       elif ch in [68, 72, 100, 104]: highlight = not highlight
       # plus key to shift pane separator right
       elif ch == 43:
-        if middle < lastwidth - 2: paneshmt += 1
+        if middle + 2 < lastwidth: paneshmt += 1
       # minus key to shift pane separator left
       elif ch == 45:
         if middle > 2: paneshmt -= 1
@@ -250,16 +250,16 @@ class DiffWindow:
         if scroll('right'): rpos[0] += 1
       # scroll left
       elif ch == curses.KEY_LEFT:
-        if scroll('left') and lpos[1] > 0:
+        if scroll('left') and lpos[1] > -4:
           lpos[1] -= 1
-        if scroll('right') and rpos[1] > 0:
+        if scroll('right') and rpos[1] > -4:
           rpos[1] -= 1
       # scroll right
       elif ch == curses.KEY_RIGHT:
-        if scroll('left') and middle > 2:
-          if self.lwidth - lpos[1] > middle - 2: lpos[1] += 1
-        if scroll('right') and middle < lastwidth:
-          if self.rwidth - rpos[1] > lastwidth - middle - 2: rpos[1] += 1
+        if scroll('left') and lpos[1] < self.lwidth:
+          lpos[1] += 1
+        if scroll('right') and rpos[1] < self.rwidth:
+          rpos[1] += 1
       # if we didn't change the pos then don't repaint
       else: repaint = False
       if repaint:

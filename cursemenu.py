@@ -262,7 +262,7 @@ def drawsplitpane(scr,
                   lhs, lpos, rhs, rpos,
                   highlight, paneshmt=0,
                   ltitle='left', rtitle='right',
-                  halfgap=2):
+                  linenums=True, halfgap=1):
   infocolor = curses.color_pair(2) | curses.A_BOLD
   # clear the screen
   scr.erase()
@@ -270,29 +270,32 @@ def drawsplitpane(scr,
   height, width = scr.getmaxyx()
   # paneshmt can be negative or positive for left/right
   middle = width//2 + paneshmt
+  # length of line numbers
+  lilen = len(str(lpos[0]+height))
+  rilen = len(str(rpos[0]+height))
   # if the middle is shifted left or right
   if paneshmt != 0:
     # if the rhs was shifted out of view
-    if middle >= width - halfgap:
+    if middle >= width + rilen - halfgap + rpos[1]:
       scr.insstr(0, 1, ltitle, infocolor)
       rstart = width
       lstop = width + lpos[1]
     # if the lhs was shifted out of view
-    elif middle <= halfgap:
-      scr.insstr(0, width-6, rtitle, infocolor)
+    elif middle + lilen + lpos[1] <= halfgap:
+      scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
       rstart = 0
       lstop = lpos[1]
     # otherwise the boundary is still in the middle
     else:
       scr.insstr(0, 1, ltitle, infocolor)
-      scr.insstr(0, width-6, rtitle, infocolor)
+      scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
       rstart = middle + halfgap
       lstop = middle - halfgap + lpos[1]
   else:
     rstart = middle + halfgap
     lstop = middle - halfgap + lpos[1]
     scr.insstr(0, 1, ltitle, infocolor)
-    scr.insstr(0, width-11, rtitle, infocolor)
+    scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
   rstop = width - rstart + rpos[1]
   # the default color is standard color
   color = curses.color_pair(0)
@@ -308,9 +311,14 @@ def drawsplitpane(scr,
       # otherwise standard color
       else: color = curses.color_pair(0)
     # draw lhs if we have a row here
+    lindex, rindex = f'{lpos[0]+i+1:{lilen}d} ', f'{rpos[0]+i+1:{rilen}d} '
     if lstop != lpos[1]:
       if i+lpos[0] >= 0 and i+lpos[0] < len(lhs):
-        scr.insstr(i, 0, lhs[lpos[0]+i][lpos[1]:lstop], color)
+        if lpos[1] < 0:
+          scr.insstr(i, 0, lindex[lpos[1]:], infocolor)
+          scr.insstr(i, -lpos[1], lhs[lpos[0]+i][:lstop], color)
+        else:
+          scr.insstr(i, 0, lhs[lpos[0]+i][lpos[1]:lstop], color)
       elif i+lpos[0] == -1:
         scr.insstr(i, 1, 'START', infocolor)
       elif i+lpos[0] == len(lhs):
@@ -318,7 +326,12 @@ def drawsplitpane(scr,
     # draw rhs if we have a row here
     if rstop != rpos[1]:
       if i+rpos[0] >= 0 and i+rpos[0] < len(rhs):
-        scr.insstr(i, rstart, rhs[rpos[0]+i][rpos[1]:rstop], color)
+        if rpos[1] < 0:
+          scr.insstr(i, rstart, rindex[rpos[1]:], infocolor)
+          if rstart-rpos[1] < width:
+            scr.insstr(i, rstart-rpos[1], rhs[rpos[0]+i][:rstop], color)
+        else:
+          scr.insstr(i, rstart, rhs[rpos[0]+i][rpos[1]:rstop], color)
       elif i+rpos[0] == -1:
         scr.insstr(i, width-6, 'START', infocolor)
       elif i+rpos[0] == len(rhs):
