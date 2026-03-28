@@ -170,28 +170,28 @@ class DiffWindow:
     rhs = [re.sub('\t','  ',line.rstrip()) for line in rhs \
                                               if line.strip() != '']
     # get column length for lhs and rhs (max of any element)
-    self.lwidth = 0
-    for row in lhs: self.lwidth = max(len(row),self.lwidth)
-    self.rwidth = 0
-    for row in rhs: self.rwidth = max(len(row),self.rwidth)
+    self.lwidth = max([len(row) for row in lhs])
+    self.rwidth = max([len(row) for row in rhs])
     # track top left 'coordinate' of the text in the lists
     # the l/rpos is the starting row + col to display
-    lpos = [0,0] # lpos[0] is starting row
-    rpos = [0,0] # rpos[1] is starting col
+    # we start with injected input KEY_HOME, so row is set in conditions below
+    lpos = [123,0] # lpos[0] is starting row
+    rpos = [456,0] # rpos[1] is starting col
     # track the last known height/width as the window could be resized
     lastheight, lastwidth = self.stdscr.getmaxyx()
     # allow independent scrolling
     singlescroll = False
     # side toggle for independent scrolling
     leftscroll = True
-    scroll = lambda x: not singlescroll or leftscroll if x=='left' \
-                    else not singlescroll or not leftscroll
+    scroll = lambda x: not singlescroll or \
+                    (leftscroll if x=='left' else not leftscroll)
     # toggle for whether to highlight matching lines
     highlight = True
     # shift amount for pane boundary, division between lhs/rhs views
     paneshmt = 0
     # these chars will quit: escape = 27, 'Q'=81, 'q'=113
     # we'll start at home
+    # NOTE: we use this to set the start row/col in lpos rpos and trigger paint
     ch = curses.KEY_HOME
     while ch not in [27, 81, 113]:
       middle = lastwidth//2 + paneshmt
@@ -208,13 +208,13 @@ class DiffWindow:
         if middle < lastwidth - 2: paneshmt += 1
       # minus key to shift pane separator left
       elif ch == 45:
-        if middle > 2: paneshmt -= 1
+        if middle > 1: paneshmt -= 1
       # equal key to reset pane shift
       elif ch == 61: paneshmt = 0
       # reset positions
       elif ch == curses.KEY_HOME:
-        if scroll('left'): lpos[0] = -1
-        if scroll('right'): rpos[0] = -1
+        if scroll('left'): lpos[0] = -2
+        if scroll('right'): rpos[0] = -2
       # go to the bottom
       elif ch == curses.KEY_END:
         # fit our maxheight in the last known height
@@ -242,24 +242,28 @@ class DiffWindow:
             rpos[0] = len(rhs) - lastheight + 1
       # scroll up
       elif ch == curses.KEY_UP:
-        if scroll('left'): lpos[0] -= 1
-        if scroll('right'): rpos[0] -= 1
+        if scroll('left') and lpos[0] > -lastheight:
+          lpos[0] -= 1
+        if scroll('right') and rpos[0] > -lastheight:
+          rpos[0] -= 1
       # scroll down
       elif ch == curses.KEY_DOWN:
-        if scroll('left'): lpos[0] += 1
-        if scroll('right'): rpos[0] += 1
+        if scroll('left') and lpos[0]+1 < len(lhs):
+          lpos[0] += 1
+        if scroll('right') and rpos[0]+1 < len(rhs):
+          rpos[0] += 1
       # scroll left
       elif ch == curses.KEY_LEFT:
-        if scroll('left') and lpos[1] > 0:
+        if scroll('left') and lpos[1] > -4:
           lpos[1] -= 1
-        if scroll('right') and rpos[1] > 0:
+        if scroll('right') and rpos[1] > -4:
           rpos[1] -= 1
       # scroll right
       elif ch == curses.KEY_RIGHT:
-        if scroll('left') and middle > 2:
-          if self.lwidth - lpos[1] > middle - 2: lpos[1] += 1
-        if scroll('right') and middle < lastwidth:
-          if self.rwidth - rpos[1] > lastwidth - middle - 2: rpos[1] += 1
+        if scroll('left') and lpos[1]+1 < self.lwidth:
+          lpos[1] += 1
+        if scroll('right') and rpos[1]+1 < self.rwidth:
+          rpos[1] += 1
       # if we didn't change the pos then don't repaint
       else: repaint = False
       if repaint:
