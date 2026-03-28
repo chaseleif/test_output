@@ -254,15 +254,21 @@ drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt, halfgap)
   This method draws a split pane view
   lhs and rhs are lists of strings
   lpos and rpos determines which row/col is the top left of each pane
-  The screen is divided vertically into 2 segments with a gap of halfgap*2
+  {l,r}pos[0] = first row, [1] = first col
+  last row = {l,r}pos[0] + height - 1
+  The screen is divided vertically into 2 segments
   The screen is cleared, strings added to screen, then refreshed
   Returns the current height, width
+
+                          width
+            middle
++-------------|-------------+
 '''
 def drawsplitpane(scr,
                   lhs, lpos, rhs, rpos,
                   highlight, paneshmt=0,
                   ltitle='left', rtitle='right',
-                  linenums=True, halfgap=1):
+                  linenums=True):
   infocolor = curses.color_pair(2) | curses.A_BOLD
   # clear the screen
   scr.erase()
@@ -270,72 +276,122 @@ def drawsplitpane(scr,
   height, width = scr.getmaxyx()
   # paneshmt can be negative or positive for left/right
   middle = width//2 + paneshmt
-  # length of line numbers
-  lilen = len(str(lpos[0]+height))
-  rilen = len(str(rpos[0]+height))
-  # if the middle is shifted left or right
-  if paneshmt != 0:
-    # if the rhs was shifted out of view
-    if middle >= width + rilen - halfgap + rpos[1]:
-      scr.insstr(0, 1, ltitle, infocolor)
-      rstart = width
-      lstop = width + lpos[1]
-    # if the lhs was shifted out of view
-    elif middle + lilen + lpos[1] <= halfgap:
-      scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
-      rstart = 0
-      lstop = lpos[1]
-    # otherwise the boundary is still in the middle
-    else:
-      scr.insstr(0, 1, ltitle, infocolor)
-      scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
-      rstart = middle + halfgap
-      lstop = middle - halfgap + lpos[1]
+  ltitle = ltitle[:width//2]
+  rtitle = rtitle[:width//2]
+  # get max lengths of line numbers (if linenums=True)
+  # the bottom printed line will have the longest number
+  lilen = lpos[0]+height
+  if lilen > len(lhs):
+    lilen = len(lhs)
+  lilen = len(str(lilen)) if lilen > 0 else 0
+  rilen = rpos[0]+height
+  if rilen > len(rhs):
+    rilen = len(rhs)
+  rilen = len(str(rilen)) if rilen > 0 else 0
+  # rhs is shifted out of view
+  # +------------|+
+  if middle > width - 3:
+    # we only print the left side
+    printside = lambda side: side==lhs
+    # zero chars given for rhs
+    rhslen = 0
+    # width chars given for lhs
+    lhslen = width
+  # lhs is shifted out of view
+  # +|------------+
+  elif middle < 2:
+    printside = lambda side: side==rhs
+    rstart = 0
+    rhslen = width
+    lhslen = 0
+  # have both left and right panes
   else:
-    rstart = middle + halfgap
-    lstop = middle - halfgap + lpos[1]
-    scr.insstr(0, 1, ltitle, infocolor)
-    scr.insstr(0, width-len(rtitle)-1, rtitle, infocolor)
-  rstop = width - rstart + rpos[1]
+    printside = lambda side: True
+    # middle is vbar, rstart=vbar+1, lhslen=vbar-1
+    rstart = middle + 1
+    rhslen = width - rstart - 1
+    lhslen = middle
   # the default color is standard color
   color = curses.color_pair(0)
+  # track start/stop y for lhs/rhs vertical separator
+  vlinestart, vlinestop = 1, height
+  haveline = lambda index, lines: \
+      printside(lines) and index >= 0 and index < len(lines)
   # add lines
-  for i in range(1, height):
+  for i in range(height):
     if highlight:
       # if the strings match (without leading/trailing space)
-      if i+lpos[0] >= 0 and i+rpos[0] >=0 and \
-            i+lpos[0] < len(lhs) and i+rpos[0] < len(rhs) and \
-            lhs[lpos[0]+i].strip() == rhs[rpos[0]+i].strip():
+      if haveline(i+lpos[0], lhs) and haveline(i+rpos[0], rhs) and \
+          lhs[lpos[0]+i].strip() == rhs[rpos[0]+i].strip():
         # make bold green
         color = curses.color_pair(1) | curses.A_BOLD
       # otherwise standard color
       else: color = curses.color_pair(0)
-    # draw lhs if we have a row here
-    lindex, rindex = f'{lpos[0]+i+1:{lilen}d} ', f'{rpos[0]+i+1:{rilen}d} '
-    if lstop != lpos[1]:
-      if i+lpos[0] >= 0 and i+lpos[0] < len(lhs):
-        if lpos[1] < 0:
-          scr.insstr(i, 0, lindex[lpos[1]:], infocolor)
-          scr.insstr(i, -lpos[1], lhs[lpos[0]+i][:lstop], color)
-        else:
-          scr.insstr(i, 0, lhs[lpos[0]+i][lpos[1]:lstop], color)
+    # draw lhs
+    if lhslen > 0:
+      if i+lpos[0] == -2:
+        scr.addnstr(i, 1, ltitle, len(ltitle), infocolor)
+        if i >= vlinestart:
+          vlinestart = i+1
       elif i+lpos[0] == -1:
-        scr.insstr(i, 1, 'START', infocolor)
+        scr.addnstr(i, 1, 'START', 5, infocolor)
+        if i >= vlinestart:
+          vlinestart = i+1
       elif i+lpos[0] == len(lhs):
-        scr.insstr(i, 1, 'END', infocolor)
-    # draw rhs if we have a row here
-    if rstop != rpos[1]:
-      if i+rpos[0] >= 0 and i+rpos[0] < len(rhs):
-        if rpos[1] < 0:
-          scr.insstr(i, rstart, rindex[rpos[1]:], infocolor)
-          if rstart-rpos[1] < width:
-            scr.insstr(i, rstart-rpos[1], rhs[rpos[0]+i][:rstop], color)
+        scr.addnstr(i, 1, 'END', 3, infocolor)
+        if i < vlinestop:
+          vlinestop = i
+      elif haveline(i+lpos[0], lhs):
+        if lpos[1] < 0:
+          lindex = f'{lpos[0]+i+1:{lilen}d}'[lpos[1]:]
+          scr.addnstr(i, 0,
+                      lindex, lhslen, infocolor)
+          lindex = len(lindex)
+          if lhslen-lindex > 0:
+            scr.addnstr(i, lindex,
+                        lhs[lpos[0]+i][:lhslen-lindex],
+                        lhslen-lindex, color)
         else:
-          scr.insstr(i, rstart, rhs[rpos[0]+i][rpos[1]:rstop], color)
+          scr.addnstr(i, 0,
+                      lhs[lpos[0]+i][lpos[1]:lpos[1]+lhslen],
+                      lhslen, color)
+    # draw rhs
+    if rhslen > 0:
+      if i+rpos[0] == -2:
+        scr.addnstr(i, width-len(rtitle)-1,
+                    rtitle, len(rtitle), infocolor)
+        if i >= vlinestart:
+          vlinestart = i+1
       elif i+rpos[0] == -1:
-        scr.insstr(i, width-6, 'START', infocolor)
+        scr.addnstr(i, width-6, 'START', 5, infocolor)
+        if i >= vlinestart:
+          vlinestart = i+1
+        if i >= vlinestart:
+          vlinestart = i+1
       elif i+rpos[0] == len(rhs):
-        scr.insstr(i, width-4, 'END', infocolor)
+        scr.addnstr(i, width-4, 'END', 3, infocolor)
+        if i < vlinestop:
+          vlinestop = i
+      elif haveline(i+rpos[0], rhs):
+        if rpos[1] < 0:
+          rindex = f'{rpos[0]+i+1:{rilen}d}'[rpos[1]:]
+          scr.addnstr(i, rstart,
+                      rindex, rhslen, infocolor)
+          rindex = len(rindex)
+          if rindex < rhslen:
+            scr.addnstr(i, rstart+rindex,
+                        rhs[rpos[0]+i][:rhslen-rindex],
+                        rhslen-rindex, color)
+        else:
+          scr.addnstr(i, rstart,
+                      rhs[rpos[0]+i][rpos[1]:rpos[1]+rhslen],
+                      rhslen, color)
+  if printside('left') and printside('right'):
+    if vlinestart >= vlinestop:
+      pass
+    elif vlinestart < height and vlinestop <= height:
+      scr.vline(vlinestart, middle,
+                curses.ACS_VLINE, vlinestop-vlinestart, infocolor)
   scr.refresh()
   return height, width
 
