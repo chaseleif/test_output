@@ -135,7 +135,7 @@ def dotests(cases, program, runstr):
       exp = []
       with open(cases[inFile], 'r') as infile:
         exp = [line.rstrip() for line in infile.readlines() \
-                                if line.strip() != '\n']
+                                if line.strip() != '']
       matches = True if len(out) == len(exp) else False
       if matches:
         for i, line in enumerate(exp):
