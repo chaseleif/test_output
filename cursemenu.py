@@ -342,9 +342,11 @@ def drawsplitpane(scr,
                   curses.color_pair(1) | curses.A_STANDOUT)
       elif i+lpos[0] == -2:
         scr.addnstr(i, 1, ltitle, len(ltitle), infocolor)
-        if len(ltitle)+2 < lhslen:
-          pad = ' '*(lhslen-len(ltitle)-2)
-          scr.addnstr(i, len(ltitle)+2, pad, len(pad),
+        # we will always have subtitle below
+        padlen = max(len(ltitle), len(lsubtitle))
+        if padlen+2 < lhslen:
+          pad = ' '*(lhslen-padlen-2)
+          scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == -1:
         scr.addnstr(i, 1, lsubtitle, 5, infocolor)
@@ -368,8 +370,8 @@ def drawsplitpane(scr,
       elif haveline(i+lpos[0], lhs):
         if lpos[1] < 0:
           lindex = f'{lpos[0]+i+1:{lilen}d}'[lpos[1]:]
-          scr.addnstr(i, 0,
-                      lindex, lhslen, infocolor)
+          if linenums:
+            scr.addnstr(i, 0, lindex, lhslen, infocolor)
           lindex = len(lindex)
           if lhslen-lindex > 0:
             scr.addnstr(i, lindex,
@@ -392,8 +394,9 @@ def drawsplitpane(scr,
         scr.hline(i, rstart, curses.ACS_HLINE, rhslen,
                   curses.color_pair(1) | curses.A_STANDOUT)
       elif i+rpos[0] == -2:
-        if len(rtitle)+1 < rhslen:
-          pad = ' '*(rhslen-len(rtitle)-1)
+        padlen = max(len(rtitle), len(rsubtitle))
+        if padlen+1 < rhslen:
+          pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
         scr.addnstr(i, width-len(rtitle)-1,
@@ -422,8 +425,8 @@ def drawsplitpane(scr,
       elif haveline(i+rpos[0], rhs):
         if rpos[1] < 0:
           rindex = f'{rpos[0]+i+1:{rilen}d}'[rpos[1]:]
-          scr.addnstr(i, rstart,
-                      rindex, rhslen, infocolor)
+          if linenums:
+            scr.addnstr(i, rstart, rindex, rhslen, infocolor)
           rindex = len(rindex)
           if rindex < rhslen:
             scr.addnstr(i, rstart+rindex,
