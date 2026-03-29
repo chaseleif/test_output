@@ -253,7 +253,7 @@ class DiffWindow:
       elif ch == 43 and width//2+paneshmt < width-2:
         paneshmt += 1
       # minus key to shift pane separator left
-      elif ch == 45 and width//2+paneshmt > 1:
+      elif ch == 45 and width//2+paneshmt > 0:
         paneshmt -= 1
       # equal key to reset pane shift
       elif ch == 61: paneshmt = 0

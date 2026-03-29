@@ -303,7 +303,7 @@ def drawsplitpane(scr,
     lhslen = width
   # lhs is shifted out of view
   # +|------------+
-  elif middle < 2:
+  elif middle < 1:
     printside = lambda side: side==rhs
     rstart = 0
     rhslen = width
@@ -346,6 +346,8 @@ def drawsplitpane(scr,
         padlen = max(len(ltitle), len(lsubtitle))
         if padlen+2 < lhslen:
           pad = ' '*(lhslen-padlen-2)
+          if lhslen == width:
+            pad = pad[:-1]
           scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == -1:
@@ -356,6 +358,8 @@ def drawsplitpane(scr,
           padlen = max(len(ltitle), len(lsubtitle))
         if padlen+2 < lhslen:
           pad = ' '*(lhslen-padlen-2)
+          if lhslen == width:
+            pad = pad[:-1]
           scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == len(lhs):
@@ -396,6 +400,8 @@ def drawsplitpane(scr,
       elif i+rpos[0] == -2:
         padlen = max(len(rtitle), len(rsubtitle))
         if padlen+1 < rhslen:
+          if rstart == 0:
+            padlen += 1
           pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
@@ -407,6 +413,8 @@ def drawsplitpane(scr,
         else:
           padlen = max(len(rtitle), len(rsubtitle))
         if padlen+1 < rhslen:
+          if rstart == 0:
+            padlen += 1
           pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
