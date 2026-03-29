@@ -219,6 +219,8 @@ class DiffWindow:
                   (scroll('right') and rpos[1] < maxrpos[1]))
     # toggle for whether to highlight matching lines
     highlight = True
+    # toggle for whether to print line numbers
+    linenums = True
     # shift amount for pane boundary, division between lhs/rhs views
     paneshmt = 0
     # we'll start at home
@@ -249,6 +251,9 @@ class DiffWindow:
       # toggle line match highlight with [dDhH] (for diff/highlight)
       elif ch in [68, 72, 100, 104]:
         highlight = not highlight
+      # toggle printing line numbers with [nN]
+      elif ch in [78, 110]:
+        linenums = not linenums
       # plus key to shift pane separator right
       elif ch == 43 and width//2+paneshmt < width-2:
         paneshmt += 1
@@ -327,7 +332,8 @@ class DiffWindow:
         repaint = False
       if repaint:
         drawsplitpane(self.stdscr, lhs, lpos, rhs, rpos,
-                    highlight, paneshmt, self.ltitle, self.rtitle)
+                    highlight, paneshmt,
+                    self.ltitle, self.rtitle, linenums)
       ch = self.stdscr.getch()
 
   '''
@@ -342,6 +348,7 @@ class DiffWindow:
                   '     Toggle left/right pane lock:  space',
                   'Toggle left/right pane scrolling:  tab',
                   '  Move pane separator left/right:  +/-',
+                  '     Toggle line-number printing:  n, N',
                   '      Reset pane separator shift:  =']]
     choices = ['Press the any key to return to the main menu . . . ']
     showmenu(self.stdscr, title=title, body=controls,
@@ -476,9 +483,10 @@ if __name__ == '__main__':
   # class usage
   '''
     If curses is not cleaned up properly
-    You will be left with an unusable terminal
-    You must call win.stopscr() you the win object must be deleted
-    Deleting the object can be done manually, with del
+    You may be left with an unusable terminal
+    You must call win.stopscr()
+      or the win object must be deleted, this also calls stopscr
+      deleting the object can be done manually, with del
   '''
   #win = DiffWindow()
   #win.initscr() # optional, called automatically in showdiff

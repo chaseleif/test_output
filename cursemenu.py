@@ -292,6 +292,7 @@ def drawsplitpane(scr,
   if rilen > len(rhs):
     rilen = len(rhs)
   rilen = len(str(rilen)) if rilen > 0 else 0
+  drawvline = None
   # rhs is shifted out of view
   # +------------|+
   if middle > width - 3:
@@ -300,16 +301,18 @@ def drawsplitpane(scr,
     # zero chars given for rhs
     rhslen = 0
     # width chars given for lhs
-    lhslen = width
+    lhslen = width-1
   # lhs is shifted out of view
   # +|------------+
   elif middle < 1:
     printside = lambda side: side==rhs
     rstart = 0
-    rhslen = width
+    rhslen = width-1
     lhslen = 0
   # have both left and right panes
   else:
+    # set drawvline to not None here
+    drawvline = False
     printside = lambda side: True
     # middle is vbar, rstart=vbar+1, lhslen=vbar-1
     rstart = middle + 1
@@ -323,18 +326,26 @@ def drawsplitpane(scr,
   rendtitle = 'END'[:rhslen]
   haveline = lambda index, lines: \
       printside(lines) and index >= 0 and index < len(lines)
+  # set highlighted lines to an immutable tuple of indices
+  if highlight:
+    if drawvline:
+      highlight = ()
+    else:
+      highlight = tuple([i for i in range(height) if \
+                haveline(i+lpos[0], lhs) and haveline(i+rpos[0], rhs) and \
+                lhs[i+lpos[0]].strip() == rhs[i+rpos[0]].strip()])
+  else:
+    highlight = ()
   # add lines
   for i in range(height):
-    # the default color is standard color
-    color = curses.color_pair(0)
     # lhs and rhs both have a line to print here
-    if printside('both') and \
-                haveline(i+lpos[0], lhs) and haveline(i+rpos[0], rhs):
-      # if the strings match (without leading/trailing space)
-      if highlight and lhs[lpos[0]+i].strip() == rhs[rpos[0]+i].strip():
-        # make bold green
-        color = curses.color_pair(1) | curses.A_BOLD
-    drawvline = True if printside('both') else None
+    if drawvline is not None:
+      drawvline = True
+    # set color, standard or highlight
+    if i in highlight:
+      color = curses.color_pair(1) | curses.A_BOLD
+    else:
+      color = curses.color_pair(0)
     # draw lhs
     if lhslen > 0:
       if i+lpos[0] == -3:
@@ -346,20 +357,16 @@ def drawsplitpane(scr,
         padlen = max(len(ltitle), len(lsubtitle))
         if padlen+2 < lhslen:
           pad = ' '*(lhslen-padlen-2)
-          if lhslen == width:
-            pad = pad[:-1]
           scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == -1:
         scr.addnstr(i, 1, lsubtitle, 5, infocolor)
-        if i == 0 or len(ltitle)+2 >= lhslen:
+        if i == 0:
           padlen = len(lsubtitle)
         else:
           padlen = max(len(ltitle), len(lsubtitle))
         if padlen+2 < lhslen:
           pad = ' '*(lhslen-padlen-2)
-          if lhslen == width:
-            pad = pad[:-1]
           scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == len(lhs):
@@ -378,8 +385,7 @@ def drawsplitpane(scr,
             scr.addnstr(i, 0, lindex, lhslen, infocolor)
           lindex = len(lindex)
           if lhslen-lindex > 0:
-            scr.addnstr(i, lindex,
-                        lhs[lpos[0]+i][:lhslen-lindex],
+            scr.addnstr(i, lindex, lhs[lpos[0]+i][:lhslen-lindex],
                         lhslen-lindex, color)
         else:
           scr.addnstr(i, 0,
@@ -400,21 +406,17 @@ def drawsplitpane(scr,
       elif i+rpos[0] == -2:
         padlen = max(len(rtitle), len(rsubtitle))
         if padlen+1 < rhslen:
-          if rstart == 0:
-            padlen += 1
           pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
         scr.addnstr(i, width-len(rtitle)-1,
                     rtitle, len(rtitle), infocolor)
       elif i+rpos[0] == -1:
-        if i == 0 or len(rtitle)+1 >= rhslen:
+        if i == 0:
           padlen = len(rsubtitle)
         else:
           padlen = max(len(rtitle), len(rsubtitle))
         if padlen+1 < rhslen:
-          if rstart == 0:
-            padlen += 1
           pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
@@ -424,7 +426,7 @@ def drawsplitpane(scr,
         if len(rendtitle)+1 < rhslen:
           pad = ' '*(rhslen-len(rendtitle)-1)
           scr.addnstr(i, rstart, pad, len(pad),
-                  curses.color_pair(4) | curses.A_DIM)
+                      curses.color_pair(4) | curses.A_DIM)
         scr.addnstr(i, width-len(rendtitle)-1,
                     rendtitle, len(rendtitle), infocolor)
       elif i+rpos[0] == len(rhs)+1:
@@ -437,14 +439,12 @@ def drawsplitpane(scr,
             scr.addnstr(i, rstart, rindex, rhslen, infocolor)
           rindex = len(rindex)
           if rindex < rhslen:
-            scr.addnstr(i, rstart+rindex,
-                        rhs[rpos[0]+i][:rhslen-rindex],
+            scr.addnstr(i, rstart+rindex, rhs[rpos[0]+i][:rhslen-rindex],
                         rhslen-rindex, color)
         else:
-          scr.addnstr(i, rstart,
-                      rhs[rpos[0]+i][rpos[1]:rpos[1]+rhslen],
+          scr.addnstr(i, rstart, rhs[rpos[0]+i][rpos[1]:rpos[1]+rhslen],
                       rhslen, color)
-      else:
+      elif drawvline is not None:
         drawvline = False
       if drawvline:
         scr.addch(i, middle, curses.ACS_VLINE,
