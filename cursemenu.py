@@ -328,7 +328,7 @@ def drawsplitpane(scr,
       printside(lines) and index >= 0 and index < len(lines)
   # set highlighted lines to an immutable tuple of indices
   if highlight:
-    if drawvline:
+    if drawvline is None:
       highlight = ()
     else:
       highlight = tuple([i for i in range(height) if \

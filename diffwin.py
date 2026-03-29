@@ -193,7 +193,7 @@ class DiffWindow:
     singlescroll = False
     # side toggle for independent scrolling, defaults to left side
     leftscroll = True
-    # whether we will scroll a side
+    # whether we could scroll a side
     scroll = lambda side: not singlescroll or \
                     (leftscroll if side=='left' else not leftscroll)
     # whether the given scroll key will cause a scroll
@@ -261,7 +261,8 @@ class DiffWindow:
       elif ch == 45 and width//2+paneshmt > 0:
         paneshmt -= 1
       # equal key to reset pane shift
-      elif ch == 61: paneshmt = 0
+      elif ch == 61 and paneshmt != 0:
+        paneshmt = 0
       elif willscroll(ch):
         # go to top
         if ch == curses.KEY_HOME:
