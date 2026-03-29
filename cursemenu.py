@@ -249,16 +249,22 @@ def filemenu(scr, title=''):
         error = str(e).split(':')
 
 '''
-drawsplitpane(scr, lhs, lpos, rhs, rpos, highlight, paneshmt, halfgap)
+drawsplitpane(scr,
+              lhs, lpos, rhs, rpos,
+              highlight, paneshmt,
+              ltitle, rtitle, linenums)
 
   This method draws a split pane view
-  lhs and rhs are lists of strings
+  lhs and rhs are lists of strings with titles ltitle and rtitle
   lpos and rpos determines which row/col is the top left of each pane
   {l,r}pos[0] = first row, [1] = first col
   last row = {l,r}pos[0] + height - 1
   The screen is divided vertically into 2 segments
+  The division is shifted by paneshmt
+    where 0 is vertical bar at width/2 -- neg/pos shifts left/right
+  With linenums=True, a line number can be printed to the left of a line
+    (if {l,r}pos[1] is negative)
   The screen is cleared, strings added to screen, then refreshed
-  Returns the current height, width
 
                           width
             middle
@@ -276,8 +282,6 @@ def drawsplitpane(scr,
   height, width = scr.getmaxyx()
   # paneshmt can be negative or positive for left/right
   middle = width//2 + paneshmt
-  ltitle = ltitle[:width//2]
-  rtitle = rtitle[:width//2]
   # get max lengths of line numbers (if linenums=True)
   # the bottom printed line will have the longest number
   lilen = lpos[0]+height
@@ -311,36 +315,56 @@ def drawsplitpane(scr,
     rstart = middle + 1
     rhslen = width - rstart - 1
     lhslen = middle
-  # the default color is standard color
-  color = curses.color_pair(0)
-  # track start/stop y for lhs/rhs vertical separator
-  vlinestart, vlinestop = 1, height
+  ltitle = ltitle[:lhslen]
+  rtitle = rtitle[:rhslen]
+  lsubtitle = 'START'[:lhslen]
+  rsubtitle = 'START'[:rhslen]
+  lendtitle = 'END'[:lhslen]
+  rendtitle = 'END'[:rhslen]
   haveline = lambda index, lines: \
       printside(lines) and index >= 0 and index < len(lines)
   # add lines
   for i in range(height):
-    if highlight:
+    # the default color is standard color
+    color = curses.color_pair(0)
+    # lhs and rhs both have a line to print here
+    if printside('both') and \
+                haveline(i+lpos[0], lhs) and haveline(i+rpos[0], rhs):
       # if the strings match (without leading/trailing space)
-      if haveline(i+lpos[0], lhs) and haveline(i+rpos[0], rhs) and \
-          lhs[lpos[0]+i].strip() == rhs[rpos[0]+i].strip():
+      if highlight and lhs[lpos[0]+i].strip() == rhs[rpos[0]+i].strip():
         # make bold green
         color = curses.color_pair(1) | curses.A_BOLD
-      # otherwise standard color
-      else: color = curses.color_pair(0)
+    drawvline = True if printside('both') else None
     # draw lhs
     if lhslen > 0:
-      if i+lpos[0] == -2:
+      if i+lpos[0] == -3:
+        scr.hline(i, 0, curses.ACS_HLINE, lhslen,
+                  curses.color_pair(1) | curses.A_STANDOUT)
+      elif i+lpos[0] == -2:
         scr.addnstr(i, 1, ltitle, len(ltitle), infocolor)
-        if i >= vlinestart:
-          vlinestart = i+1
+        if len(ltitle)+2 < lhslen:
+          pad = ' '*(lhslen-len(ltitle)-2)
+          scr.addnstr(i, len(ltitle)+2, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == -1:
-        scr.addnstr(i, 1, 'START', 5, infocolor)
-        if i >= vlinestart:
-          vlinestart = i+1
+        scr.addnstr(i, 1, lsubtitle, 5, infocolor)
+        if i == 0 or len(ltitle)+2 >= lhslen:
+          padlen = len(lsubtitle)
+        else:
+          padlen = max(len(ltitle), len(lsubtitle))
+        if padlen+2 < lhslen:
+          pad = ' '*(lhslen-padlen-2)
+          scr.addnstr(i, padlen+2, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == len(lhs):
-        scr.addnstr(i, 1, 'END', 3, infocolor)
-        if i < vlinestop:
-          vlinestop = i
+        scr.addnstr(i, 1, lendtitle, len(lendtitle), infocolor)
+        if len(lendtitle)+2 < lhslen:
+          pad = ' '*(lhslen-len(lendtitle)-2)
+          scr.addnstr(i, len(lendtitle)+2, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
+      elif i+lpos[0] == len(lhs)+1:
+        scr.hline(i, 0, curses.ACS_HLINE, lhslen,
+                  curses.color_pair(1) | curses.A_STANDOUT)
       elif haveline(i+lpos[0], lhs):
         if lpos[1] < 0:
           lindex = f'{lpos[0]+i+1:{lilen}d}'[lpos[1]:]
@@ -355,23 +379,46 @@ def drawsplitpane(scr,
           scr.addnstr(i, 0,
                       lhs[lpos[0]+i][lpos[1]:lpos[1]+lhslen],
                       lhslen, color)
+      elif drawvline is not None:
+        drawvline = False
+      if drawvline:
+        scr.addch(i, middle, curses.ACS_VLINE,
+              curses.color_pair(1) | curses.A_STANDOUT)
     # draw rhs
     if rhslen > 0:
-      if i+rpos[0] == -2:
+      if drawvline is not None and not drawvline:
+        drawvline = True
+      if i+rpos[0] == -3:
+        scr.hline(i, rstart, curses.ACS_HLINE, rhslen,
+                  curses.color_pair(1) | curses.A_STANDOUT)
+      elif i+rpos[0] == -2:
+        if len(rtitle)+1 < rhslen:
+          pad = ' '*(rhslen-len(rtitle)-1)
+          scr.addnstr(i, rstart, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
         scr.addnstr(i, width-len(rtitle)-1,
                     rtitle, len(rtitle), infocolor)
-        if i >= vlinestart:
-          vlinestart = i+1
       elif i+rpos[0] == -1:
-        scr.addnstr(i, width-6, 'START', 5, infocolor)
-        if i >= vlinestart:
-          vlinestart = i+1
-        if i >= vlinestart:
-          vlinestart = i+1
+        if i == 0 or len(rtitle)+1 >= rhslen:
+          padlen = len(rsubtitle)
+        else:
+          padlen = max(len(rtitle), len(rsubtitle))
+        if padlen+1 < rhslen:
+          pad = ' '*(rhslen-padlen-1)
+          scr.addnstr(i, rstart, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
+        scr.addnstr(i, width-len(rsubtitle)-1,
+                    rsubtitle, len(rsubtitle), infocolor)
       elif i+rpos[0] == len(rhs):
-        scr.addnstr(i, width-4, 'END', 3, infocolor)
-        if i < vlinestop:
-          vlinestop = i
+        if len(rendtitle)+1 < rhslen:
+          pad = ' '*(rhslen-len(rendtitle)-1)
+          scr.addnstr(i, rstart, pad, len(pad),
+                  curses.color_pair(4) | curses.A_DIM)
+        scr.addnstr(i, width-len(rendtitle)-1,
+                    rendtitle, len(rendtitle), infocolor)
+      elif i+rpos[0] == len(rhs)+1:
+        scr.hline(i, rstart, curses.ACS_HLINE, rhslen,
+                  curses.color_pair(1) | curses.A_STANDOUT)
       elif haveline(i+rpos[0], rhs):
         if rpos[1] < 0:
           rindex = f'{rpos[0]+i+1:{rilen}d}'[rpos[1]:]
@@ -386,13 +433,11 @@ def drawsplitpane(scr,
           scr.addnstr(i, rstart,
                       rhs[rpos[0]+i][rpos[1]:rpos[1]+rhslen],
                       rhslen, color)
-  if printside('left') and printside('right'):
-    if vlinestart >= vlinestop:
-      pass
-    elif vlinestart < height and vlinestop <= height:
-      scr.vline(vlinestart, middle,
-                curses.ACS_VLINE, vlinestop-vlinestart, infocolor)
+      else:
+        drawvline = False
+      if drawvline:
+        scr.addch(i, middle, curses.ACS_VLINE,
+              curses.color_pair(1) | curses.A_STANDOUT)
   scr.refresh()
-  return height, width
 
 # vim: tabstop=2 shiftwidth=2 expandtab

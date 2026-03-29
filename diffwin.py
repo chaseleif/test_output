@@ -122,6 +122,8 @@ class DiffWindow:
     curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
     # this will be error text
     curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
+    # this will be background / border
+    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_CYAN)
     # suppress echo of keypresses
     curses.noecho()
     # immediately respond to keypresses
@@ -172,105 +174,160 @@ class DiffWindow:
     # get column length for lhs and rhs (max of any element)
     self.lwidth = max([len(row) for row in lhs])
     self.rwidth = max([len(row) for row in rhs])
+    # track the height/width
+    height, width = self.stdscr.getmaxyx()
     # track top left 'coordinate' of the text in the lists
     # the l/rpos is the starting row + col to display
     # we start with injected input KEY_HOME, so row is set in conditions below
     lpos = [123,0] # lpos[0] is starting row
     rpos = [456,0] # rpos[1] is starting col
-    # track the last known height/width as the window could be resized
-    lastheight, lastwidth = self.stdscr.getmaxyx()
-    # allow independent scrolling
+    # set limits for pos
+    # don't set pos row less then -height
+    # don't set pos col less than -4 (allows 3 digit num)
+    # 1 row remains on screen (at bottom)
+    minpos = [-height+1, -4]
+    # max pos prints 1 row of a pane (at top), right col of line
+    maxlpos = [len(lhs)-1, self.lwidth-1]
+    maxrpos = [len(rhs)-1, self.rwidth-1]
+    # allow independent scrolling, default is locked left/right
     singlescroll = False
-    # side toggle for independent scrolling
+    # side toggle for independent scrolling, defaults to left side
     leftscroll = True
-    scroll = lambda x: not singlescroll or \
-                    (leftscroll if x=='left' else not leftscroll)
+    # whether we will scroll a side
+    scroll = lambda side: not singlescroll or \
+                    (leftscroll if side=='left' else not leftscroll)
+    # whether the given scroll key will cause a scroll
+    # if not then we don't need to needlessly repaint
+    # move toward
+    #  max/min pos[0] (up/down) or pos[1] (left/right)
+    willscroll = lambda key: \
+                        ((key == curses.KEY_HOME or \
+                          key == curses.KEY_PPAGE or \
+                          key == curses.KEY_UP) and \
+                  (scroll('left') and lpos[0] > minpos[0]) or \
+                  (scroll('right') and rpos[0] > minpos[0])) or \
+                        ((key == curses.KEY_END or \
+                          key == curses.KEY_NPAGE or \
+                          key == curses.KEY_DOWN) and \
+                  (scroll('left') and lpos[0] < maxlpos[0]) or \
+                  (scroll('right') and rpos[0] < maxrpos[0])) or \
+                        (key == curses.KEY_LEFT and \
+                  (scroll('left') and lpos[1] > minpos[1]) or \
+                  (scroll('right') and rpos[1] > minpos[1])) or \
+                        (key == curses.KEY_RIGHT and \
+                  (scroll('left') and lpos[1] < maxlpos[1]) or \
+                  (scroll('right') and rpos[1] < maxrpos[1]))
     # toggle for whether to highlight matching lines
     highlight = True
     # shift amount for pane boundary, division between lhs/rhs views
     paneshmt = 0
-    # these chars will quit: escape = 27, 'Q'=81, 'q'=113
     # we'll start at home
-    # NOTE: we use this to set the start row/col in lpos rpos and trigger paint
     ch = curses.KEY_HOME
+    # NOTE: we start at HOME to set the start row and trigger paint
+    # these chars will quit: escape = 27, 'Q'=81, 'q'=113
     while ch not in [27, 81, 113]:
-      middle = lastwidth//2 + paneshmt
+      # do keys that won't trigger repainting first
+      # the space key toggles independent scrolling
+      if ch == 32:
+        singlescroll = not singlescroll
+      # the tab key toggles whether lhs is active (otherwise rhs)
+      elif ch == 9:
+        leftscroll = not leftscroll
+      # otherwise we will repaint unless next list doesn't match
+      else:
+        repaint = True
       # repaint the screen if we do one of these conditions
-      repaint = True
-      # the space key to toggle independent scrolling
-      if ch == 32: singlescroll = not singlescroll
-      # the tab key to toggle whether lhs is active (otherwise rhs)
-      elif ch == 9: leftscroll = not leftscroll
-      # toggle line match highlight with d, D, h, or H (for diff/highlight)
-      elif ch in [68, 72, 100, 104]: highlight = not highlight
+      # a resize event
+      if ch == curses.KEY_RESIZE:
+        height, width = self.stdscr.getmaxyx()
+        minpos[0] = -height+1
+        # ensure we didn't go past minpos
+        if lpos[0] < minpos[0]:
+          lpos[0] = minpos[0]
+        if rpos[0] < minpos[0]:
+          rpos[0] = minpos[0]
+      # toggle line match highlight with [dDhH] (for diff/highlight)
+      elif ch in [68, 72, 100, 104]:
+        highlight = not highlight
       # plus key to shift pane separator right
-      elif ch == 43:
-        if middle < lastwidth - 2: paneshmt += 1
+      elif ch == 43 and width//2+paneshmt < width-2:
+        paneshmt += 1
       # minus key to shift pane separator left
-      elif ch == 45:
-        if middle > 1: paneshmt -= 1
+      elif ch == 45 and width//2+paneshmt > 1:
+        paneshmt -= 1
       # equal key to reset pane shift
       elif ch == 61: paneshmt = 0
-      # reset positions
-      elif ch == curses.KEY_HOME:
-        if scroll('left'): lpos[0] = -2
-        if scroll('right'): rpos[0] = -2
-      # go to the bottom
-      elif ch == curses.KEY_END:
-        # fit our maxheight in the last known height
-        if scroll('left') and lastheight < len(lhs):
-          lpos[0] = len(lhs) - lastheight + 1
-        if scroll('right') and lastheight < len(rhs):
-          rpos[0] = len(rhs) - lastheight + 1
-      # page up
-      elif ch == curses.KEY_PPAGE:
-        if scroll('left'):
-          lpos[0] -= lastheight - 4
-          if lpos[0] < 0: lpos[0] = -1
-        if scroll('right'):
-          rpos[0] -= lastheight - 4
-          if rpos[0] < 0: rpos[0] = -1
-      # page down
-      elif ch == curses.KEY_NPAGE:
-        if scroll('left') and lastheight < len(lhs):
-          lpos[0] += lastheight - 4
-          if lpos[0] > len(lhs) - lastheight:
-            lpos[0] = len(lhs) - lastheight + 1
-        if scroll('right') and lastheight < len(rhs):
-          rpos[0] += lastheight - 4
-          if rpos[0] > len(rhs) - lastheight:
-            rpos[0] = len(rhs) - lastheight + 1
-      # scroll up
-      elif ch == curses.KEY_UP:
-        if scroll('left') and lpos[0] > -lastheight:
-          lpos[0] -= 1
-        if scroll('right') and rpos[0] > -lastheight:
-          rpos[0] -= 1
-      # scroll down
-      elif ch == curses.KEY_DOWN:
-        if scroll('left') and lpos[0]+1 < len(lhs):
-          lpos[0] += 1
-        if scroll('right') and rpos[0]+1 < len(rhs):
-          rpos[0] += 1
-      # scroll left
-      elif ch == curses.KEY_LEFT:
-        if scroll('left') and lpos[1] > -4:
-          lpos[1] -= 1
-        if scroll('right') and rpos[1] > -4:
-          rpos[1] -= 1
-      # scroll right
-      elif ch == curses.KEY_RIGHT:
-        if scroll('left') and lpos[1]+1 < self.lwidth:
-          lpos[1] += 1
-        if scroll('right') and rpos[1]+1 < self.rwidth:
-          rpos[1] += 1
+      elif willscroll(ch):
+        # go to top
+        if ch == curses.KEY_HOME:
+          # first, set pos to -2 (top is title+start+firstline)
+          # on a second press move top line to bottom of screen
+          if scroll('left'):
+            if lpos[0] > -2:
+              lpos[0] = -2
+            else:
+              lpos[0] = minpos[0]
+          if scroll('right'):
+            if rpos[0] > -2:
+              rpos[0] = -2
+            else:
+              rpos[0] = minpos[0]
+        # go to the bottom
+        elif ch == curses.KEY_END:
+          # first, fill height with bottom of text
+          # on a second press move bottom line to top of screen
+          if scroll('left'):
+            if lpos[0] < len(lhs) - height + 1:
+              lpos[0] = len(lhs) - height + 1
+            else:
+              lpos[0] = maxlpos[0]
+          if scroll('right'):
+            if rpos[0] < len(rhs) - height + 1:
+              rpos[0] = len(rhs) - height + 1
+            else:
+              rpos[0] = maxrpos[0]
+        # page up
+        elif ch == curses.KEY_PPAGE:
+          if scroll('left'):
+            lpos[0] = max(lpos[0]-height-3, minpos[0])
+          if scroll('right'):
+            rpos[0] = max(rpos[0]-height-3, minpos[0])
+        # page down
+        elif ch == curses.KEY_NPAGE:
+          if scroll('left') and height < len(lhs):
+            lpos[0] = min(lpos[0]+height-3, maxlpos[0])
+          if scroll('right') and height < len(rhs):
+            rpos[0] = min(rpos[0]+height-3, maxrpos[0])
+        # scroll up
+        elif ch == curses.KEY_UP:
+          if scroll('left') and lpos[0] > minpos[0]:
+            lpos[0] -= 1
+          if scroll('right') and rpos[0] > minpos[0]:
+            rpos[0] -= 1
+        # scroll down
+        elif ch == curses.KEY_DOWN:
+          if scroll('left') and lpos[0] < maxlpos[0]:
+            lpos[0] += 1
+          if scroll('right') and rpos[0] < maxrpos[0]:
+            rpos[0] += 1
+        # scroll left
+        elif ch == curses.KEY_LEFT:
+          if scroll('left') and lpos[1] > minpos[1]:
+            lpos[1] -= 1
+          if scroll('right') and rpos[1] > minpos[1]:
+            rpos[1] -= 1
+        # scroll right
+        elif ch == curses.KEY_RIGHT:
+          if scroll('left') and lpos[1] < maxlpos[1]:
+            lpos[1] += 1
+          if scroll('right') and rpos[1] < maxrpos[1]:
+            rpos[1] += 1
       # if we didn't change the pos then don't repaint
-      else: repaint = False
+      else:
+        repaint = False
       if repaint:
-        lastheight, lastwidth = drawsplitpane(self.stdscr,
-                                              lhs, lpos, rhs, rpos,
-                                              highlight, paneshmt,
-                                              self.ltitle, self.rtitle)
+        drawsplitpane(self.stdscr, lhs, lpos, rhs, rpos,
+                    highlight, paneshmt, self.ltitle, self.rtitle)
       ch = self.stdscr.getch()
 
   '''
