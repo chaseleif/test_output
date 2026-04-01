@@ -320,10 +320,6 @@ def drawsplitpane(scr,
     lhslen = middle
   ltitle = ltitle[:lhslen]
   rtitle = rtitle[:rhslen]
-  lsubtitle = 'START'[:lhslen]
-  rsubtitle = 'START'[:rhslen]
-  lendtitle = 'END'[:lhslen]
-  rendtitle = 'END'[:rhslen]
   haveline = lambda index, lines: \
       printside(lines) and index >= 0 and index < len(lines)
   # set highlighted lines to an immutable tuple of indices
@@ -348,34 +344,17 @@ def drawsplitpane(scr,
       color = curses.color_pair(0)
     # draw lhs
     if lhslen > 0:
-      if i+lpos[0] == -3:
+      if i+lpos[0] == -2:
         scr.hline(i, 0, curses.ACS_HLINE, lhslen,
                   curses.color_pair(1) | curses.A_STANDOUT)
-      elif i+lpos[0] == -2:
-        scr.addnstr(i, 1, ltitle, len(ltitle), infocolor)
-        # we will always have subtitle below
-        padlen = max(len(ltitle), len(lsubtitle))
-        if padlen+2 < lhslen:
-          pad = ' '*(lhslen-padlen-2)
-          scr.addnstr(i, padlen+2, pad, len(pad),
-                  curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == -1:
-        scr.addnstr(i, 1, lsubtitle, 5, infocolor)
-        if i == 0:
-          padlen = len(lsubtitle)
-        else:
-          padlen = max(len(ltitle), len(lsubtitle))
+        scr.addnstr(i, 1, ltitle, len(ltitle), infocolor)
+        padlen = len(ltitle)
         if padlen+2 < lhslen:
           pad = ' '*(lhslen-padlen-2)
           scr.addnstr(i, padlen+2, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
       elif i+lpos[0] == len(lhs):
-        scr.addnstr(i, 1, lendtitle, len(lendtitle), infocolor)
-        if len(lendtitle)+2 < lhslen:
-          pad = ' '*(lhslen-len(lendtitle)-2)
-          scr.addnstr(i, len(lendtitle)+2, pad, len(pad),
-                  curses.color_pair(4) | curses.A_DIM)
-      elif i+lpos[0] == len(lhs)+1:
         scr.hline(i, 0, curses.ACS_HLINE, lhslen,
                   curses.color_pair(1) | curses.A_STANDOUT)
       elif haveline(i+lpos[0], lhs):
@@ -400,36 +379,18 @@ def drawsplitpane(scr,
     if rhslen > 0:
       if drawvline is not None and not drawvline:
         drawvline = True
-      if i+rpos[0] == -3:
+      if i+rpos[0] == -2:
         scr.hline(i, rstart, curses.ACS_HLINE, rhslen,
                   curses.color_pair(1) | curses.A_STANDOUT)
-      elif i+rpos[0] == -2:
-        padlen = max(len(rtitle), len(rsubtitle))
+      elif i+rpos[0] == -1:
+        padlen = len(rtitle)
         if padlen+1 < rhslen:
           pad = ' '*(rhslen-padlen-1)
           scr.addnstr(i, rstart, pad, len(pad),
                   curses.color_pair(4) | curses.A_DIM)
         scr.addnstr(i, width-len(rtitle)-1,
                     rtitle, len(rtitle), infocolor)
-      elif i+rpos[0] == -1:
-        if i == 0:
-          padlen = len(rsubtitle)
-        else:
-          padlen = max(len(rtitle), len(rsubtitle))
-        if padlen+1 < rhslen:
-          pad = ' '*(rhslen-padlen-1)
-          scr.addnstr(i, rstart, pad, len(pad),
-                  curses.color_pair(4) | curses.A_DIM)
-        scr.addnstr(i, width-len(rsubtitle)-1,
-                    rsubtitle, len(rsubtitle), infocolor)
       elif i+rpos[0] == len(rhs):
-        if len(rendtitle)+1 < rhslen:
-          pad = ' '*(rhslen-len(rendtitle)-1)
-          scr.addnstr(i, rstart, pad, len(pad),
-                      curses.color_pair(4) | curses.A_DIM)
-        scr.addnstr(i, width-len(rendtitle)-1,
-                    rendtitle, len(rendtitle), infocolor)
-      elif i+rpos[0] == len(rhs)+1:
         scr.hline(i, rstart, curses.ACS_HLINE, rhslen,
                   curses.color_pair(1) | curses.A_STANDOUT)
       elif haveline(i+rpos[0], rhs):
