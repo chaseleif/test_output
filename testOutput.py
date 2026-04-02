@@ -225,7 +225,7 @@ if __name__ == '__main__':
   cases = {}
   if args['testpath'][-1] != '/': args['testpath'] += '/'
   if 'exppath' in args and args['exppath'][-1] != '/': args['exppath'] += '/'
-  for inFile in os.listdir(args['testpath']):
+  for inFile in sorted(os.listdir(args['testpath'])):
     if not inFile.endswith(args['testext']): continue
     # this is where the expected output file would be
     expFile = None
