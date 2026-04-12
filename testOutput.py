@@ -151,7 +151,7 @@ def dotests(cases, program, runstr):
         if DiffWindow:
           confirm = input('Open ' + test + ' in curses? (y/n): ')
         if confirm == 'y':
-          with DiffWindow('output', 'expected') as win:
+          with DiffWindow('output', test) as win:
             win.showdiff(out, exp)
         else:
           for line in difflib.context_diff(a=out, fromfile='actual',
