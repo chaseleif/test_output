@@ -116,10 +116,10 @@ def dotests(cases, program, runstr):
     # handle bad return codes
     if output[1] != 0:
       print('~~ cmd:', cmd + '\n')
-      if len(output[0][0]) > 0 and output[0][0].rstrip() != '':
+      if len(output[0][0]) > 0 and output[0][0].strip() != '':
         print('~~ stdout:')
         print(output[0][0].rstrip() + '\n')
-      if len(output[0][1]) > 0 and output[0][1].rstrip() != '':
+      if len(output[0][1]) > 0 and output[0][1].strip() != '':
         print('~~ stderr:')
         print(output[0][1].rstrip() + '\n')
       if output[1] > 0:
@@ -130,6 +130,13 @@ def dotests(cases, program, runstr):
     # handle normal exit
     # we have a corresponding file for expected output
     if cases[inFile]:
+      # put any stderr at the top
+      # depending on use-case, we may want to compare stdout first
+      if len(output[0][1]) > 0 && output[0][1].strip() != '':
+        out = [line.rstrip() for line in output[0][1].split('\n') \
+                              if line.strip() != '']
+      else:
+        out = []
       out = [line.rstrip() for line in output[0][0].split('\n') \
                               if line.strip() != '']
       exp = []
@@ -147,15 +154,25 @@ def dotests(cases, program, runstr):
       if matches == True:
         print('Actual output matches expected output\n')
       else:
+        # if out is empty then there was no output
+        # we can ask whether to show the input or skip
+        if not out:
+          print('~~ No output')
         # ask whether to use curses or difflib
         if DiffWindow:
           confirm = input('Open ' + test + ' in curses? (y/n): ')
         if confirm == 'y':
-          with DiffWindow('output', test) as win:
-            win.showdiff(out, exp)
-        else:
-          for line in difflib.context_diff(a=out, fromfile='actual',
-                                            b=exp, tofile='expect'):
+          if not out:
+            with open(inFile, 'r') as infile:
+              lhs = [line.rstrip() for line in infile.readlines()]
+            with DiffWindow('input', test) as win:
+              win.showdiff(lhs, exp)
+          else:
+            with DiffWindow('output', test) as win:
+              win.showdiff(out, exp)
+        else if out:
+          for line in difflib.context_diff(a=out, fromfile='output',
+                                            b=exp, tofile=test):
             print(line)
     # no corresponding output, print our output and the input
     else:

@@ -172,8 +172,16 @@ class DiffWindow:
     rhs = [re.sub('\t','  ',line.rstrip()) for line in rhs \
                                               if line.strip() != '']
     # get column length for lhs and rhs (max of any element)
-    self.lwidth = max([len(row) for row in lhs])
-    self.rwidth = max([len(row) for row in rhs])
+    if not lhs:
+      self.ltitle += ' (no contents)'
+      self.lwidth = 0
+    else:
+      self.lwidth = max([len(row) for row in lhs])
+    if not rhs:
+      self.rtitle += ' (no contents)'
+      self.rwidth = 0
+    else:
+      self.rwidth = max([len(row) for row in rhs])
     # track the height/width
     height, width = self.stdscr.getmaxyx()
     # track top left 'coordinate' of the text in the lists
