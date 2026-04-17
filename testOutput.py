@@ -132,12 +132,12 @@ def dotests(cases, program, runstr):
     if cases[inFile]:
       # put any stderr at the top
       # depending on use-case, we may want to compare stdout first
-      if len(output[0][1]) > 0 && output[0][1].strip() != '':
+      if len(output[0][1]) > 0 and output[0][1].strip() != '':
         out = [line.rstrip() for line in output[0][1].split('\n') \
                               if line.strip() != '']
       else:
         out = []
-      out = [line.rstrip() for line in output[0][0].split('\n') \
+      out += [line.rstrip() for line in output[0][0].split('\n') \
                               if line.strip() != '']
       exp = []
       with open(cases[inFile], 'r') as infile:
@@ -170,7 +170,7 @@ def dotests(cases, program, runstr):
           else:
             with DiffWindow('output', test) as win:
               win.showdiff(out, exp)
-        else if out:
+        elif out:
           for line in difflib.context_diff(a=out, fromfile='output',
                                             b=exp, tofile=test):
             print(line)
