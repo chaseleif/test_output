@@ -96,6 +96,7 @@ dotests(cases, program, runstr)
     otherwise displays the input file
 '''
 def dotests(cases, program, runstr):
+  errortests = {}
   # if we have '@in' in the runstr we replace that with our input file
   filepos = runstr.find('@in')
   # otherwise cmd is just our runstr
@@ -123,9 +124,11 @@ def dotests(cases, program, runstr):
         print('~~ stderr:')
         print(output[0][1].rstrip() + '\n')
       if output[1] > 0:
-        print('~~', program, 'terminated with exception')
+        print(f'~~ {program} terminated with exception')
+        errortests[test] = 'exception'
       else:
-        print('~~', program, 'terminated with signal', Signals(-output[1]))
+        print(f'~~ {program} terminated with signal {Signals(-output[1]).name}')
+        errortests[test] = f'signal {Signals(-output[1]).name}'
       continue
     # handle normal exit
     # we have a corresponding file for expected output
@@ -203,6 +206,7 @@ def dotests(cases, program, runstr):
       else:
         print('\n'.join(lhs))
         print('\n'.join(rhs))
+  return errortests
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser( description=sys.argv[0] + \
@@ -259,11 +263,17 @@ if __name__ == '__main__':
   cmd = args['program']
   if 'args' in args: cmd += ' ' + ' '.join(args['args'])
   # Do the tests
+  errortests = {}
   try:
-    dotests(cases, args['program'], cmd)
+    errortests = dotests(cases, args['program'], cmd)
   # Allow ctrl-c to exit
   except KeyboardInterrupt: pass
-  # Allow ctrl-d to exit
-  except EOFError: print('< EOF')
+  # Replace ctrl-d with ctrl-c for iterator script
+  except EOFError: raise KeyboardInterrupt
+  # exit with error 1 for iterator script
+  if len(errortests) > 0:
+    for test, result in errortests.items():
+      print(f'{test} terminated with {result}')
+    sys.exit(1)
 
 # vim: tabstop=2 shiftwidth=2 expandtab
