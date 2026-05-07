@@ -168,7 +168,7 @@ def dotests(cases, program, runstr):
           if not out:
             with open(inFile, 'r') as infile:
               lhs = [line.rstrip() for line in infile.readlines()]
-            with DiffWindow('input', test) as win:
+            with DiffWindow(f'Test {test}', test) as win:
               win.showdiff(lhs, exp)
           else:
             with DiffWindow('output', test) as win:
@@ -185,23 +185,20 @@ def dotests(cases, program, runstr):
       if confirm != 'y': confirm = None
       # lhs will be test input
       lhs = []
-      lhs.append('~~ input (' + test + '):')
       # the input file
       with open(inFile, 'r') as infile:
-        lhs += [line.rstrip() for line in infile.readlines() \
-                              if line.strip() != '']
+        lhs += [line.rstrip() for line in infile.readlines()]
       # rhs will be all test output
       rhs = []
+      # put all stderr at the top
       if len(output[0][1]) > 0 and output[0][1].rstrip() != '':
-        rhs.append('~~ stderr:')
         rhs += [line.rstrip() for line in output[0][1].split('\n') \
                               if line.strip() != '']
       if len(output[0][0]) > 0 and output[0][0].rstrip() != '':
-        rhs.append('~~ stdout:')
         rhs += [line.rstrip() for line in output[0][0].split('\n') \
                               if line.strip() != '']
       if confirm:
-        with DiffWindow('input', 'output') as win:
+        with DiffWindow(f'Test {test}', 'output') as win:
           win.showdiff(lhs, rhs)
       else:
         print('\n'.join(lhs))
