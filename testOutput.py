@@ -201,7 +201,9 @@ def dotests(cases, program, runstr):
         with DiffWindow(f'Test {test}', 'output') as win:
           win.showdiff(lhs, rhs)
       else:
+        print(f'~~ input ({test}):')
         print('\n'.join(lhs))
+        print('~~ output:')
         print('\n'.join(rhs))
   return errortests
 
