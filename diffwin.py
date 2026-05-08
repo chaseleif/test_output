@@ -186,9 +186,9 @@ class DiffWindow:
     height, width = self.stdscr.getmaxyx()
     # track top left 'coordinate' of the text in the lists
     # the l/rpos is the starting row + col to display
-    # we start with injected input KEY_HOME, so row is set in conditions below
-    lpos = [123,0] # lpos[0] is starting row
-    rpos = [456,0] # rpos[1] is starting col
+    # -2 for the 2 title bar rows
+    lpos = [-2,0] # lpos[0] is starting row
+    rpos = [-2,0] # rpos[1] is starting col
     # set limits for pos
     # don't set pos row less then -height
     # don't set pos col less than -4 (allows 3 digit num)
@@ -231,9 +231,8 @@ class DiffWindow:
     linenums = True
     # shift amount for pane boundary, division between lhs/rhs views
     paneshmt = 0
-    # we'll start at home
-    ch = curses.KEY_HOME
-    # NOTE: we start at HOME to set the start row and trigger paint
+    # inject KEY_RESIZE so that we draw the screen
+    ch = curses.KEY_RESIZE
     # these chars will quit: escape = 27, 'Q'=81, 'q'=113
     while ch not in [27, 81, 113]:
       # do keys that won't trigger repainting first

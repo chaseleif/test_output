@@ -1,45 +1,43 @@
-### A collection of 2 main scripts and 1 utility script to test programs
-
 ___
 
 # TestOutput
 
-### a Python script to test a program
+### A collection of 2 main scripts and 1 utility script to test programs
 
-*Can be used without other scripts in this repo*  
 ___
 
-## Argparse generated output options
+## Argparse generated help
 
-  -h, --help           Show this help message.  
-  --testpath <path>    Path containing test input files  
-  --testext <ext>      Extension of test input files  
-  --exppath <path>     Path containing expected output files  
-  --expext <ext>       Extension of expected outputs  
-  --program <program>  Path to program to test  
-  --args ...           Program arguments, specify input filenames with @in  
+  -h, --help           show this help message and exit
+  --casedir <path>     Path containing test case files
+  --caseext <ext>      Extension of test input files
+  --expdir <path>      Path containing expected output files
+  --expext <ext>       Extension of expected outputs
+  --program <program>  Path to program to test
+  --args ...           Program arguments, specify input filenames with @in
 
 ## Required arguments
 
-- testpath: Path containing files which will be used as input to the program  
+- casedir: Path containing files which will be used as input to the program  
 - program: Path to the program to test  
 
 ## Optional arguments
 
-- testext: File extension for input files, if not provided use all files  
-- exppath: Path containing files with expected output of the program  
-(if not provided then program output is displayed)  
+- caseext: File extension for input files, if not provided will use all files  
+- expdir: Path containing files with expected output of the program  
+(if not provided then input with output is displayed)  
 - expext: File extension for expected output files, used as testext  
 - args: Arguments to use when running the program  
-(input filename will be insert into argument @in, if specified)  
+(input filename will be inserted wherever @in appears, if specified)  
 (if no @in argument exists, input file will be piped to stdin)  
 
 ___
 
-## Output shown
+## Output
 
-Output shown will indicate whether output matched expected output  
-If they do not match, a diff will be shown using either DiffWin or difflib  
+On error or no output, failure will be indicated for that test.  
+If actual output matches expected output, success is shown.  
+If they don't match, a diff will be shown using DiffWin.   
 
 ___
 ___
@@ -80,13 +78,27 @@ if __name__ == '__main__':
 ___
 ## Main menu
 
+```
 Select the left-hand side file  
 Select the right-hand side file  
 Show the diff between the files  
 Show available commands for diff view  
 Quit  
-
+```
 ___
+
+## Commands
+
+```
+             Previous menu/Quit: <escape>, q, Q
+      Toggle match highlighting: d, D, h, H
+    Toggle left+right pane lock: <space>
+    Switch left/right scrolling: <tab>
+Shift pane separator left/right: -/+
+            Toggle line-numbers: n, N
+     Reset pane separator shift: =
+```
+
 ___
 
 # CurseMenu
