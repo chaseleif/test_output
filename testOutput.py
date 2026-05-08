@@ -19,260 +19,217 @@
 '''
 
 '''
-    Example Makefile usage given a top-level directory and ./assgnX/ subfolders
-    ( with the scripts in the top level-dir and Makefile in assgn dir )
-    This example usage (and below import) includes the DiffWindow script
+  testOutput.py
+  given a directory with test cases, the casedir,
+    we give each test case to the program as input
+  input is either piped in via stdin,
+    or the input filename is given to the program where @in is an argument
+  expected output is optional, and lives in expdir,
+    we verify the actual output matches the expected output
+  if there is no expected output, we display the input with the actual output
+  if there is expected output we only do this if it differs,
+    otherwise we print a message that the output matches
+  we handle and give notice of any cases that ended in error/exception
 
-$ tail -n14 Makefile
-test/cursemenu.py: ../cursemenu.py
-	cp $< $@
+    Example Makefile usage where this script is located in ../
 
-test/diffwin.py: ../diffwin.py test/cursemenu.py
-	cp $< $@
-
-test/testOutput.py: ../testOutput.py
-	cp $< $@
-
-test: obj/$(BIN) test/diffwin.py test/testOutput.py
-	python3 ./test/testOutput.py \
---testpath test/cases --testext .mC \
---exppath test/exp --expext .exp \
---program $<
+$ tail -n7 Makefile | expand -t 2
+.PHONY: test
+test: obj/$(BIN) ../testOutput.py ../diffwin.py ../cursemenu.py
+  python3 ./test/testOutput.py \
+    --casedir test/cases --caseext .mC \
+    --expdir test/exp --expdir .exp \
+    --program $<
+    --args arg1 key=val "multi-word arg" --input=@in
 '''
 
-import argparse, difflib, os, sys
+import argparse, os, re, shlex, sys
 from signal import Signals
 from subprocess import Popen, PIPE
 sys.dont_write_bytecode = True
-try:
-  from diffwin import DiffWindow
-except ModuleNotFoundError: DiffWindow = None
-sys.dont_write_bytecode = False
+from diffwin import DiffWindow
 
 '''
 runproc(cmd, filepos, filename)
   input:
-    cmdv:     list, command specified to execute
-    filepos:  None if we need to set stdin to be a file
-    filename: the string filename
+    cmd:      list, command specified to execute
+    filearg:  if filearg is none we pipe the file as stdin
+    filename: the input filename
   returns:
-    a list: [output, returncode]
-    output is a list: [stdout, stderr]
-    stdout or stderr are strings and may be empty
-    returncode is a numeric value indicating exit code
-                = 0: normal exit
-                = 1: uncaught exception
-                < 0: exception with negative signal number
+    stdout, stderr, returncode
+    stdout and stderr are strings
+    returncode  = 0: normal
+                = 1: error
+                < 0: signal
 '''
-def runproc(cmd, filepos = None, filename=''):
-  # the output of a failed run
-  output = ['', '']
+def runproc(cmd, filearg, filename):
+  stdout, stderr, retcode = '', '', 1
   try:
-    # our input text
-    intext = None
-    # filepos is the position of runstr for the input file to use
-    if not filepos:
-      # open the input file and pass it as stdin to Popen
+    pipein = None
+    # filearg indicates whether the input file was given as an argument
+    if filearg:
+      pipein = None
+    else:
       with open(filename, 'r') as infile:
-        intext = infile.read()
-    proc = Popen(cmd, stdin = PIPE, stdout = PIPE, stderr = PIPE,
-                  shell = True, universal_newlines = True)
-    output = proc.communicate(input = intext)
-    return output, proc.returncode
+        pipein = infile.read()
+    proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
+                  universal_newlines=True)
+    stdout, stderr = proc.communicate(input=pipein)
+    retcode = proc.returncode
   except Exception as e:
-    print('ERROR (' + sys.argv[0] + ':runproc): ' + str(e))
-    return output, 1
+    stderr = f'runproc: {e}'
+    retcode = 1
+  return stdout, stderr, retcode
 
 '''
-dotests(cases, program, runstr)
+dotests(cases, runstr)
   input:
     cases:   dict, key = case file, value = exp file or None
-    program: the program to test
-    runstr:  program + args
+    runstr:  shlex.join([program] + args)
   executes the test for each case in cases
-  displays actual output (if possible)
-    segmentation faults may suppress output
-  displays comparison with expected output (if exp file exists)
-    otherwise displays the input file
+  displays output if possible
+    (non-normal exit may suppress output)
+  displays comparison if exp file exists and output doesn't match
+  it no exp file displays input and output
 '''
-def dotests(cases, program, runstr):
+def dotests(cases, runstr):
   errortests = {}
   # if we have '@in' in the runstr we replace that with our input file
-  filepos = runstr.find('@in')
-  # otherwise cmd is just our runstr
-  cmd = runstr
-  output = None
-  confirm = 'n'
+  filearg = runstr.find('@in')
+  # if @in is in the runstr, that is the place for the input argument
+  # if @in is not in the runstr, we pipe the input to the program via stdin
   # if we don't have @in in our runstr just set filepos to None
-  if filepos < 0:
-    filepos = None
+  if filearg < 0:
+    filearg = None
+    cmd = shlex.split(runstr)
+  else:
+    runstr = re.sub('@in', '\"@in\"', runstr)
   # for each mC file . . .
   for inFile in cases:
     # the test name is the filename without an extension
-    test = inFile.split('.')[0].split('/')[-1]
-    print('~~~~~\n~~ Test ' + test + ':')
-    if filepos:
-      cmd = runstr[:filepos] + inFile + runstr[filepos+3:]
-    output = runproc(cmd, filepos, inFile)
-    # handle bad return codes
-    if output[1] != 0:
-      print('~~ cmd:', cmd + '\n')
-      if len(output[0][0]) > 0 and output[0][0].strip() != '':
-        print('~~ stdout:')
-        print(output[0][0].rstrip() + '\n')
-      if len(output[0][1]) > 0 and output[0][1].strip() != '':
-        print('~~ stderr:')
-        print(output[0][1].rstrip() + '\n')
+    test = os.path.splitext(os.path.basename(inFile))[0]
+    if filearg:
+      cmd = shlex.split(re.sub('@in', inFile, runstr))
+    stdout, stderr, retcode = runproc(cmd, filearg, inFile)
+    # bad return codes
+    if retcode != 0:
+      if stderr.strip():
+        print(stderr.rstrip())
+      if stdout.strip():
+        print(stdout.rstrip())
       if output[1] > 0:
-        print(f'~~ {program} terminated with exception')
+        print(f'^^ {test} terminated with exception')
         errortests[test] = 'exception'
       else:
-        print(f'~~ {program} terminated with signal {Signals(-output[1]).name}')
-        errortests[test] = f'signal {Signals(-output[1]).name}'
+        print(f'^^ {test} signal {Signals(-retcode).name}')
+        errortests[test] = f'signal {Signals(-retcode).name}'
       continue
-    # handle normal exit
-    # we have a corresponding file for expected output
-    if cases[inFile]:
-      # put any stderr at the top
-      # depending on use-case, we may want to compare stdout first
-      if len(output[0][1]) > 0 and output[0][1].strip() != '':
-        out = [line.rstrip() for line in output[0][1].split('\n') \
-                              if line.strip() != '']
-      else:
-        out = []
-      out += [line.rstrip() for line in output[0][0].split('\n') \
-                              if line.strip() != '']
-      exp = []
-      with open(cases[inFile], 'r') as infile:
-        exp = [line.rstrip() for line in infile.readlines() \
-                                if line.strip() != '']
-      matches = True if len(out) == len(exp) else False
-      if matches:
-        for i, line in enumerate(exp):
-          # If they don't match
-          if line != out[i]:
-            matches = False
-            break
-      # if matches is True then our output matched
-      if matches == True:
-        print('Actual output matches expected output\n')
-      else:
-        # if out is empty then there was no output
-        # we can ask whether to show the input or skip
-        if not out:
-          print('~~ No output')
-        # ask whether to use curses or difflib
-        if DiffWindow:
-          confirm = input('Open ' + test + ' in curses? (y/n): ')
-        if confirm == 'y':
-          if not out:
-            with open(inFile, 'r') as infile:
-              lhs = [line.rstrip() for line in infile.readlines()]
-            with DiffWindow(f'Test {test}', test) as win:
-              win.showdiff(lhs, exp)
-          else:
-            with DiffWindow('output', test) as win:
-              win.showdiff(out, exp)
-        elif out:
-          for line in difflib.context_diff(a=out, fromfile='output',
-                                            b=exp, tofile=test):
-            print(line)
-    # no corresponding output, print our output and the input
-    else:
-      # ask whether to use curses
-      if DiffWindow:
-        confirm = input('Open ' + test + ' in curses? (y/n): ')
-      if confirm != 'y': confirm = None
+    # if output is empty then treat this as an error
+    if not stdout.strip() and not stderr.strip():
+      errortests[test] = 'no output'
+      continue
+    # no expected output file, print actual output and the input
+    if cases[inFile] is None:
       # lhs will be test input
-      lhs = []
-      # the input file
       with open(inFile, 'r') as infile:
-        lhs += [line.rstrip() for line in infile.readlines()]
-      # rhs will be all test output
-      rhs = []
-      # put all stderr at the top
-      if len(output[0][1]) > 0 and output[0][1].rstrip() != '':
-        rhs += [line.rstrip() for line in output[0][1].split('\n') \
+        lhs = [line.rstrip() for line in infile.readlines()]
+      # rhs will be actual output
+      rhs = [line.rstrip() for line in stderr.split('\n') \
+                            if line.strip() != '']
+      rhs += [line.rstrip() for line in stdout.split('\n') \
+                            if line.strip() != '']
+      with DiffWindow(f'Test {test} input', 'Actual output') as win:
+        win.showdiff(lhs, rhs)
+      continue
+    # we have an expected output file
+    out = [line.rstrip() for line in stderr.split('\n') \
+                          if line.strip() != '']
+    out += [line.rstrip() for line in stdout.split('\n') \
+                            if line.strip() != '']
+    with open(cases[inFile], 'r') as infile:
+      exp = [line.rstrip() for line in infile.readlines() \
                               if line.strip() != '']
-      if len(output[0][0]) > 0 and output[0][0].rstrip() != '':
-        rhs += [line.rstrip() for line in output[0][0].split('\n') \
-                              if line.strip() != '']
-      if confirm:
-        with DiffWindow(f'Test {test}', 'output') as win:
-          win.showdiff(lhs, rhs)
-      else:
-        print(f'~~ input ({test}):')
-        print('\n'.join(lhs))
-        print('~~ output:')
-        print('\n'.join(rhs))
+    matches = True if len(out) == len(exp) else False
+    if matches:
+      for lhs,rhs in zip(out, exp):
+        # If they don't match
+        if lhs != rhs:
+          matches = False
+          break
+    # if matches is True then our output matched
+    if matches == True:
+      print(f'Test {test} output matches expected output\n')
+      continue
+    with DiffWindow(f'Test {test} output', 'Expected output') as win:
+      win.showdiff(out, exp)
   return errortests
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser( description=sys.argv[0] + \
                                       ' - a Python script to test a program',
-                                    argument_default=argparse.SUPPRESS,
-                                    prog=sys.argv[0],
-                                    epilog='Required: testpath, program')
-  parser.add_argument('--testpath', metavar='<path>',
-                      help='Path containing test input files')
-  parser.add_argument('--testext', metavar='<ext>', default='',
+                                    prog=sys.argv[0])
+  parser.add_argument('--casedir', metavar='<path>', required=True,
+                      help='Path containing test case files')
+  parser.add_argument('--caseext', metavar='<ext>', default='',
                       help='Extension of test input files')
-  parser.add_argument('--exppath', metavar='<path>',
+  parser.add_argument('--expdir', metavar='<path>', default=None,
                       help='Path containing expected output files')
   parser.add_argument('--expext', metavar='<ext>', default='',
                       help='Extension of expected outputs')
-  parser.add_argument('--program', metavar='<program>',
+  parser.add_argument('--program', metavar='<program>', required=True,
                       help='Path to program to test')
   parser.add_argument('--args', nargs=argparse.REMAINDER,
                 help='Program arguments, specify input filenames with @in')
 
   args = vars(parser.parse_args())
-  if 'program' not in args or 'testpath' not in args:
-    parser.print_help()
+  program = args['program']
+  if not os.path.isfile(program):
+    print(f'ERROR: program {program} does not exist')
     sys.exit(1)
-  if not os.path.isfile(args['program']):
-    print('ERROR: Program',args['program'],'does not exist')
-    sys.exit(1)
-  if not os.access(args['program'], os.X_OK):
-    print('ERROR: Program',args['program'],'is not executable')
-    sys.exit(1)
-  if not os.path.isdir(args['testpath']):
-    print('ERROR: Path',args['testpath'],'is not valid')
+  if not os.access(program, os.X_OK):
+    print(f'ERROR: program {program} is not executable')
     sys.exit(1)
 
-  # Collect the input files in a dictionary
-  # key = inFile, value = (expFile or None)
-  cases = {}
-  if args['testpath'][-1] != '/': args['testpath'] += '/'
-  if 'exppath' in args and args['exppath'][-1] != '/': args['exppath'] += '/'
-  for inFile in sorted(os.listdir(args['testpath'])):
-    if not inFile.endswith(args['testext']): continue
-    # this is where the expected output file would be
-    expFile = None
-    if 'exppath' in args:
-      expFile = args['exppath'] + inFile.split('.')[0] + args['expext']
-      if not os.path.isfile(expFile): expFile = None
-    # set the full path to the input file to equal expected output file
-    cases[args['testpath'] + inFile] = expFile
+  casedir = args['casedir']
+  if not os.path.isdir(casedir):
+    print(f'ERROR: path {casedir} is not a directory')
+    sys.exit(1)
+  caseext = args['caseext']
+  # list of test cases
+  cases = [os.path.splitext(case)[0] \
+            for case in sorted(os.listdir(casedir)) \
+              if os.path.splitext(case)[1] == caseext]
+
+  expdir = args['expdir']
+  expext = args['expext']
+  # list of expected output
+  if expdir and os.path.isdir(expdir):
+    expfiles = [os.path.splitext(exp)[0] \
+        for exp in os.listdir(expdir) if os.path.splitext(exp)[1] == expext]
+  else:
+    expfiles = []
+  # map of test case to expected output
+  cases = {os.path.join(casedir, case+caseext) :
+            (os.path.join(expdir, case+expext) \
+              if case in expfiles else None) for case in cases}
 
   if len(cases) == 0:
-    print('ERROR: No test cases found in',args['testpath'])
+    print(f'ERROR: no test cases found in {casedir}')
     sys.exit(1)
 
   cmd = args['program']
-  if 'args' in args: cmd += ' ' + ' '.join(args['args'])
+  cmd = [cmd] + args['args'] if args['args'] else [cmd]
+  cmd = shlex.join(cmd)
+
   # Do the tests
   errortests = {}
   try:
-    errortests = dotests(cases, args['program'], cmd)
-  # Allow ctrl-c to exit
-  except KeyboardInterrupt: pass
-  # Replace ctrl-d with ctrl-c for iterator script
-  except EOFError: raise KeyboardInterrupt
-  # exit with error 1 for iterator script
+    errortests = dotests(cases, cmd)
+  except KeyboardInterrupt:
+    errortests[os.path.basename(sys.argv[0])] = 'KeyboardInterrupt'
+  except EOFError:
+    errortests[os.path.basename(sys.argv[0])] = 'EOFError'
   if len(errortests) > 0:
     for test, result in errortests.items():
       print(f'{test} terminated with {result}')
     sys.exit(1)
-
-# vim: tabstop=2 shiftwidth=2 expandtab
