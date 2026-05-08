@@ -72,12 +72,14 @@ def runproc(cmd, filearg, filename):
     else:
       with open(filename, 'r') as infile:
         pipein = infile.read()
-    proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                  universal_newlines=True)
+    proc = Popen(cmd, universal_newlines=True,
+                  stdin=(None if filearg else PIPE), stdout=PIPE, stderr=PIPE)
     stdout, stderr = proc.communicate(input=pipein)
     retcode = proc.returncode
   except Exception as e:
-    stderr = f'runproc: {e}'
+    if stderr:
+      stderr += '\n'
+    stderr += f'runproc: {e}'
     retcode = 1
   return stdout, stderr, retcode
 
@@ -117,7 +119,7 @@ def dotests(cases, runstr):
         print(stderr.rstrip())
       if stdout.strip():
         print(stdout.rstrip())
-      if output[1] > 0:
+      if retcode > 0:
         print(f'^^ {test} terminated with exception')
         errortests[test] = 'exception'
       else:
