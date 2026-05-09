@@ -70,9 +70,11 @@ class DiffWindow:
 
     The intended usage is as described above and in the "if name == __main__"
   '''
-  def __init__(self, ltitle='left', rtitle='right'):
+  def __init__(self, ltitle='left', rtitle='right', scr=None):
     self.ltitle = ltitle
     self.rtitle = rtitle
+    self.stdscr = scr
+    self.ownscr = scr is None
 
   '''
   __enter__
@@ -80,7 +82,10 @@ class DiffWindow:
     We init curses, get a screen, and set options
     Returns self for use with the listdiff() function
   '''
-  def __enter__(self): return self.initscr()
+  def __enter__(self, scr=None):
+    self.stdscr = scr
+    self.ownscr = scr is None
+    return self.initscr()
 
   '''
   __exit__
@@ -94,10 +99,7 @@ class DiffWindow:
 
     Ensure curses has been town down
   '''
-  def __del__(self):
-    try:
-      if self.havescr: self.stopscr()
-    except AttributeError: pass
+  def __del__(self): self.stopscr()
 
   '''
   initscr
@@ -105,10 +107,8 @@ class DiffWindow:
     The actual init function to init curses and set vars
   '''
   def initscr(self):
-    # flag init
-    try:
-      if self.havescr: return
-    except AttributeError: pass
+    if self.stdscr is not None:
+      return self
     # window.getmaxyx() doesn't return updated sizes after resize
     # this leads to drawing problems if the window is resized
     # this issue was open for 17 years before someone made a PR
@@ -150,17 +150,16 @@ class DiffWindow:
   stopscr
 
     The actual stop method to teardown the curses
+    This should be called by del or exit, not to stop/restart later
   '''
   def stopscr(self):
     # reset modes back to normal
-    try:
-      if self.havescr:
-        self.havescr = False
-        curses.nocbreak()
-        self.stdscr.keypad(False)
-        curses.echo()
-        curses.endwin()
-    except AttributeError: pass
+    if self.ownscr and self.stdscr is not None:
+      curses.nocbreak()
+      self.stdscr.keypad(False)
+      curses.echo()
+      curses.endwin()
+      self.stdscr = None
 
   '''
   showdiff(lhs, rhs)
@@ -483,6 +482,13 @@ __name__ == __main__
   Usage of DiffWin class is demonstrated below
 '''
 if __name__ == '__main__':
+  '''
+    If curses is not cleaned up properly
+    You may be left with an unusable terminal
+    You must call win.stopscr()
+      or the win object must be deleted, this also calls stopscr
+      deleting the object can be done manually, with del
+  '''
   if len(sys.argv) == 3:
     lhs, rhs = [], []
     ltitle, rtitle = sys.argv[1], sys.argv[2]
@@ -499,16 +505,7 @@ if __name__ == '__main__':
     with DiffWindow() as win:
       win.mainmenu()
   # class usage
-  '''
-    If curses is not cleaned up properly
-    You may be left with an unusable terminal
-    You must call win.stopscr()
-      or the win object must be deleted, this also calls stopscr
-      deleting the object can be done manually, with del
-  '''
   #win = DiffWindow()
   #win.initscr() # optional, called automatically in showdiff
   #win.showdiff(lhs, rhs)
   #win.stopscr() # called in del if initscr has been called
-
-# vim: tabstop=2 shiftwidth=2 expandtab
