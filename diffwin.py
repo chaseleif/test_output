@@ -400,8 +400,8 @@ class DiffWindow:
     # while quit is not chosen
     while True:
       # get a choice
-      topline, ch = showmenu(self.stdscr, title=title, body=body,
-                              err=error, choices=choices, hpos=ch)
+      _, ch = showmenu(self.stdscr, title=title, body=body,
+                        err=error, choices=choices, hpos=ch)
       # allow to quit on escape, q, or Q:
       if ch is None: break
       error=None
