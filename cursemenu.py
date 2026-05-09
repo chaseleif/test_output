@@ -193,8 +193,6 @@ def gettextfilemenu(scr, title=''):
   topline = 0
   ch = 0
   # when we move to a new directory update the body text and reset pos
-  valid_textchar = lambda c: c in printable or \
-                              not unicodedata.category(c).startswith('C')
   while True:
     # get the sorted contents of the directory
     names = sorted([name for name in path.iterdir()])
@@ -235,13 +233,10 @@ def gettextfilemenu(scr, title=''):
       try:
         with open(path / names[ch], 'r') as infile:
           contents = infile.readlines()
-          if not contents:
-            error = 'File \"' + names[ch] + '\" appears empty'
-          for line in contents:
-            if any(not valid_textchar(c) for c in line):
-              error = 'File \"' + names[ch] + '\" not printable'
-              break
-          if not error: return contents, names[ch]
+        if not contents:
+          error = 'File \"' + names[ch] + '\" appears empty'
+        else:
+          return contents, names[ch]
       except Exception as e:
         error = str(e).split(':')
 
