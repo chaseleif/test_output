@@ -109,6 +109,16 @@ class DiffWindow:
     try:
       if self.havescr: return
     except AttributeError: pass
+    # window.getmaxyx() doesn't return updated sizes after resize
+    # this leads to drawing problems if the window is resized
+    # this issue was open for 17 years before someone made a PR
+    # https://github.com/python/cpython/issues/46927
+    # https://github.com/python/cpython/pull/133585
+    # maybe they will merge it one day
+    # a "fix" is to set/overwrite the environment variables before init
+    for key in ('LINES','COLUMNS'):
+      os.environ[key]=key
+      del os.environ[key]
     self.havescr = True
     # get the std screen
     self.stdscr = curses.initscr()
