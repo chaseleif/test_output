@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 
-import curses, os
+import curses, os, unicodedata
+from pathlib import Path
+from string import printable
 
 '''
     CurseMenu - a Python script providing some curses menu functions
@@ -172,32 +174,42 @@ def showmenu(scr,
     elif ch in [curses.KEY_ENTER, 10, 13]: return topline, hpos
 
 '''
-filemenu(scr, title)
+gettextfilemenu(scr, title)
 
   This method is used to print a file selection menu on scr
   The navigation begins from the current working directory
   The choices are the contents of the currently selected directory
   A file opened must be a text file
 
-  Returns -> the file.readlines() list (or None if cancelled)
+  Returns ->
+    on text file selection: [lines], filename
+    on cancelled: None, None
 '''
-def filemenu(scr, title=''):
+def gettextfilemenu(scr, title=''):
   # the path starts at the current working directory
-  path = os.getcwd()
+  path = Path.cwd()
   error = None
-  body = [['Select a text file'], ['Path: ' + path]]
+  body = [['Select a text file'], [f'Path: {path}']]
   topline = 0
   ch = 0
+  # when we move to a new directory update the body text and reset pos
+  valid_textchar = lambda c: c in printable or \
+                              not unicodedata.category(c).startswith('C')
   while True:
+    # get the sorted contents of the directory
+    names = sorted([name for name in path.iterdir()])
+    # only keep names we have read permission for
+    names = [name for name in names if os.access(name, os.R_OK)]
+    # finally, keep files and any directories with the execute bit
+    names = [name for name in names if name.is_file() or \
+              (name.is_dir() and os.access(name, os.X_OK))]
+    # squash to strings and reorder
+    # directories before files, directories end with os.path.sep
+    names = [str(name.name)+os.path.sep for name in names if name.is_dir()] + \
+            [str(name.name) for name in names if name.is_file()]
     # give an option to go up a level unless we are at the root
-    if path == '': path = '/'
-    names = ['../'] if path != '/' else []
-    # add the contents of the directory
-    names += [name+'/' for name in os.listdir(path) \
-                        if os.path.isdir(path+'/'+name)]
-    names += [name for name in os.listdir(path) \
-                        if os.path.isfile(path+'/'+name)]
-    names.sort()
+    if path.parents:
+      names.insert(0, '..')
     # get the response
     topline, ch = showmenu(scr, title=title, body=body, err=error,
                             choices=names, topline=topline, hpos=ch)
@@ -205,43 +217,28 @@ def filemenu(scr, title=''):
     if ch is None: return None, None
     # reset the error message
     error = None
-    # if we selected to go up or our selection is a subdirectory
-    if names[ch][-1] == '/':
-      # if we chose to go up remove the last directory from the path
-      if names[ch] == '../':
-        path = '/'.join(path.split('/')[:-1])
-        # the root will become an empty string
-        if path == '': path = '/'
-      # we chose a directory from our path
-      else:
-        # test to see if we can get a list of the directory contents
-        names[ch] = names[ch][:-1]
-        testpath = path + names[ch] if path == '/' else path + '/' + names[ch]
-        try: os.listdir(testpath)
-        except Exception as e:
-          # if we can't read the directory set an error string and continue
-          error = str(e).split(':')
-          continue
-        # if we could read the directory set the path
-        path = testpath
-      # update the path in the body text
-      body[-1][-1] = 'Path: ' + path
+    # we selected to go up
+    if names[ch] == '..':
+      path = path.parent
+      body[-1][-1] = f'Path: {path}'
+      ch = 0
+      topline = 0
+    # our selection is a subdirectory
+    elif names[ch].endswith(os.path.sep):
+      path = path / names[ch]
+      body[-1][-1] = f'Path: {path}'
       ch = 0
       topline = 0
     # our selection was a file
     else:
-      # try to read the file
+      # return the file contents+name if we can read it as strings
       try:
-        if path == '/': path = ''
-        # reading the file will fail without permissions
-        # or if the file is definitely not a text file
-        # (some binary files will pass here and throw an exception if used)
-        with open(path+'/'+names[ch]) as infile:
+        with open(path / names[ch], 'r') as infile:
           contents = infile.readlines()
           if not contents:
             error = 'File \"' + names[ch] + '\" appears empty'
           for line in contents:
-            if any(not isinstance(c, str) for c in line):
+            if any(not valid_textchar(c) for c in line):
               error = 'File \"' + names[ch] + '\" not printable'
               break
           if not error: return contents, names[ch]
@@ -411,5 +408,3 @@ def drawsplitpane(scr,
         scr.addch(i, middle, curses.ACS_VLINE,
               curses.color_pair(1) | curses.A_STANDOUT)
   scr.refresh()
-
-# vim: tabstop=2 shiftwidth=2 expandtab

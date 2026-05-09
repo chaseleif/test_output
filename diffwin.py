@@ -2,8 +2,7 @@
 
 import curses, os, re, sys
 sys.dont_write_bytecode = True
-from cursemenu import showmenu, filemenu, drawsplitpane
-sys.dont_write_bytecode = False
+from cursemenu import showmenu, gettextfilemenu, drawsplitpane
 
 '''
     DiffWindow - a Python script to view difference between 2 text files
@@ -408,7 +407,7 @@ class DiffWindow:
       error=None
       # open a file to set lhs
       if legend[ch] == 'lhs':
-        ret, name = filemenu(self.stdscr, title=title)
+        ret, name = gettextfilemenu(self.stdscr, title=title)
         # didn't have a lhs before and didn't get one
         if lhs is None and ret is None: pass
         # didn't have a lhs before and have one now
@@ -429,7 +428,7 @@ class DiffWindow:
         lhs = ret
       # open a file to set rhs
       elif legend[ch] == 'rhs':
-        ret, name = filemenu(self.stdscr, title=title)
+        ret, name = gettextfilemenu(self.stdscr, title=title)
         # didn't have a rhs before and didn't get one
         if rhs is None and ret is None: pass
         # didn't have a rhs before and have one now
