@@ -58,7 +58,7 @@ def showmenu(scr,
   if type(err) is str: maxwidth = max(len(err),maxwidth)
   elif type(err) is list:
     errorlen = len(err)
-    for e in err: maxwidth = max(len(e),maxwidth)
+    maxwidth = max(maxwidth, max(len(e) for e in err))
   for line in choices: maxwidth = max(len(line),maxwidth)
   # set colors to be used
   titlecolor = curses.color_pair(2) | curses.A_BOLD
