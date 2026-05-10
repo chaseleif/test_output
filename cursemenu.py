@@ -1,8 +1,7 @@
 #! /usr/bin/env python3
 
-import curses, os, unicodedata
+import curses, os, sys, termios, tty
 from pathlib import Path
-from string import printable
 
 '''
     CurseMenu - a Python script providing some curses menu functions
@@ -124,56 +123,64 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
         return ch
 
 '''
-getinputmenu(scr)
+getinputmenu(scr, title, prompt)
 '''
 def getinputmenu(scr, title='', prompt='Enter input:'):
   titlecolor = curses.color_pair(2) | curses.A_BOLD
   itemcolor = curses.color_pair(1)
   val = ''
+  fd = sys.stdin.fileno()
+  oldfd = termios.tcgetattr(fd)
   height, width = scr.getmaxyx()
-  while True:
-    scr.erase()
-    lpos = (width-len(title))//2
-    if lpos < 0:
-      lpos = 0
-    scr.insstr(0, lpos, title, titlecolor)
-    lpos = (width-len(prompt))//2
-    if lpos < 0:
-      lpos = 0
-    scr.insstr(2, lpos, prompt, itemcolor)
-    if val:
-      line = 4
-      lpos = (width-len(val))//2
+  try:
+    while True:
+      scr.erase()
+      lpos = (width-len(title))//2
       if lpos < 0:
         lpos = 0
-      scr.insstr(4, lpos, val[:width], itemcolor)
-      lpos += len(val)
-      line = 4
-      consumed = 0
-      while lpos >= width:
-        consumed += width
-        line += 1
-        scr.insstr(line, 0, val[consumed:consumed+width], itemcolor)
-        lpos -= width
-      scr.move(line, lpos)
-    else:
-      scr.move(4, width//2)
-    curses.curs_set(2)
-    scr.refresh()
-    while True:
-      ch = scr.getch()
-      if ch == curses.KEY_RESIZE:
-        height, width = scr.getmaxyx()
-        break
-      if ch in [curses.KEY_ENTER, 10, 13]:
-        return val if val else None
-      if ch >= 32 and ch <= 126:
-        val += chr(ch)
-        break
-      if ch in [curses.KEY_BACKSPACE, '\b', 127]:
-        if val:
-          val = val[:-1]
+      scr.insstr(0, lpos, title, titlecolor)
+      lpos = (width-len(prompt))//2
+      if lpos < 0:
+        lpos = 0
+      scr.insstr(2, lpos, prompt, itemcolor)
+      if val:
+        line = 4
+        lpos = (width-len(val))//2
+        if lpos < 0:
+          lpos = 0
+        scr.insstr(4, lpos, val[:width], itemcolor)
+        lpos += len(val)
+        line = 4
+        consumed = 0
+        while lpos >= width:
+          consumed += width
+          line += 1
+          scr.insstr(line, 0, val[consumed:consumed+width], itemcolor)
+          lpos -= width
+        scr.move(line, lpos)
+      else:
+        scr.move(4, width//2)
+      curses.curs_set(2)
+      scr.refresh()
+      ret = False
+      while True:
+        ch = scr.get_wch()
+        if ch == curses.KEY_RESIZE:
+          height, width = scr.getmaxyx()
           break
+        if ch in [curses.KEY_ENTER, 10, 13, '\n', '\r']:
+          return val if val else None
+        if ch in [curses.KEY_BACKSPACE, '\b', 127, '\x7f']:
+          if val:
+            val = val[:-1]
+            break
+        if isinstance(ch, str):
+          val += ch
+          break
+      if ret:
+        break
+  finally:
+    termios.tcsetattr(fd, termios.TCSADRAIN, oldfd)
 
 '''
 choicemenu(scr, title, body, choices, infobox, curs, hpos)
