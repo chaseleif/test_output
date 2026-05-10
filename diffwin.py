@@ -2,7 +2,7 @@
 
 import curses, os, re, sys
 sys.dont_write_bytecode = True
-from cursemenu import modalwindow, choicemenu, gettextfilemenu, drawsplitpane
+from cursemenu import modalwindow, choicemenu, getfilemenu, drawsplitpane
 
 '''
     DiffWindow - a Python script to view difference between 2 text files
@@ -404,15 +404,20 @@ class DiffWindow:
       if ch is None: break
       # open a file to set lhs
       if legend[ch] == 'lhs':
-        ret, name = gettextfilemenu(self.stdscr, title=title)
+        name = getfilemenu(self.stdscr, title=title)
+        if name is not None and os.path.getsize(name) == 0:
+          modalwindow(self.stdscr, title=title, curs=2,
+                      body=[['Press the any key to continue . . . ']],
+                      err=[f'File {os.path.basename(name)} appears empty'])
+          name = None
         # didn't have a lhs before and didn't get one
-        if lhs is None and ret is None: pass
+        if lhs is None and name is None: pass
         # didn't have a lhs before and have one now
-        elif lhs is None and ret is not None:
+        elif lhs is None and name is not None:
           self.ltitle = name
           choices[legend.index('lhs')] += ' (set to \"' + self.ltitle + '\")'
         # had a filename and don't have one now, remove filename
-        elif lhs is not None and ret is None:
+        elif lhs is not None and name is None:
           self.ltitle = 'left'
           choices[legend.index('lhs')] = \
               choices[legend.index('lhs')].split(' (set to ')[0]
@@ -422,18 +427,23 @@ class DiffWindow:
           choices[legend.index('lhs')] = \
               choices[legend.index('lhs')].split(' (set to ')[0]
           choices[legend.index('lhs')] += ' (set to \"' + self.ltitle + '\")'
-        lhs = ret
+        lhs = name
       # open a file to set rhs
       elif legend[ch] == 'rhs':
-        ret, name = gettextfilemenu(self.stdscr, title=title)
+        name = getfilemenu(self.stdscr, title=title)
+        if name is not None and os.path.getsize(name) == 0:
+          modalwindow(self.stdscr, title=title, curs=2,
+                      body=[['Press the any key to continue . . . ']],
+                      err=[f'File {os.path.basename(name)} appears empty'])
+          name = None
         # didn't have a rhs before and didn't get one
-        if rhs is None and ret is None: pass
+        if rhs is None and name is None: pass
         # didn't have a rhs before and have one now
-        elif rhs is None and ret is not None:
+        elif rhs is None and name is not None:
           self.rtitle = name
           choices[legend.index('rhs')] += ' (set to \"' + self.rtitle + '\")'
         # had a filename and don't have one now, remove filename
-        elif rhs is not None and ret is None:
+        elif rhs is not None and name is None:
           self.rtitle = 'right'
           choices[legend.index('rhs')] = \
               choices[legend.index('rhs')].split(' (set to ')[0]
@@ -443,7 +453,7 @@ class DiffWindow:
           choices[legend.index('rhs')] = \
               choices[legend.index('rhs')].split(' (set to ')[0]
           choices[legend.index('rhs')] += ' (set to \"' + self.rtitle + '\")'
-        rhs = ret
+        rhs = name
       # show the diff of lhs and rhs
       elif legend[ch] == 'diff':
         if not lhs and not rhs:
@@ -462,16 +472,43 @@ class DiffWindow:
                         ['Press the any key to continue . . . ']],
                   err='Right- side file must be selected first!')
         else:
-          ltitle = self.ltitle
-          rtitle = self.rtitle
-          self.ltitle = os.path.basename(ltitle)
-          self.rtitle = os.path.basename(rtitle)
-          if self.ltitle == self.rtitle:
-            self.ltitle = f'a/{self.ltitle}'
-            self.rtitle = f'b/{self.rtitle}'
-          self.showdiff(lhs, rhs)
-          self.ltitle = ltitle
-          self.rtitle = rtitle
+          if not isinstance(lhs, list):
+            try:
+              with open(lhs, 'r') as infile:
+                lhs = infile.readlines()
+            except Exception as e:
+              modalwindow(self.stdscr, title=title, curs=2,
+                          body=[[f'Unable to open {lhs}'],
+                                ['Press the any key to continue . . . ']],
+                          err=str(e).split(':'))
+              lhs = None
+              self.ltitle = 'left'
+              choices[legend.index('lhs')] = \
+                  choices[legend.index('lhs')].split(' (set to ')[0]
+          if not isinstance(rhs, list):
+            try:
+              with open(rhs, 'r') as infile:
+                rhs = infile.readlines()
+            except Exception as e:
+              modalwindow(self.stdscr, title=title, curs=2,
+                          body=[[f'Unable to open {rhs}'],
+                                ['Press the any key to continue . . . ']],
+                          err=str(e).split(':'))
+              rhs = None
+              self.ltitle = 'right'
+              choices[legend.index('rhs')] = \
+                  choices[legend.index('rhs')].split(' (set to ')[0]
+          if lhs and rhs:
+            ltitle = self.ltitle
+            rtitle = self.rtitle
+            self.ltitle = os.path.basename(ltitle)
+            self.rtitle = os.path.basename(rtitle)
+            if self.ltitle == self.rtitle:
+              self.ltitle = f'a/{self.ltitle}'
+              self.rtitle = f'b/{self.rtitle}'
+            self.showdiff(lhs, rhs)
+            self.ltitle = ltitle
+            self.rtitle = rtitle
       # show the command information
       elif legend[ch] == 'commands':
         self.commands(title=title)

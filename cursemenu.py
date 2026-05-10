@@ -105,7 +105,6 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
         curses.curs_set(curs)
     scr.refresh()
     # while we don't need to redraw the screen
-    ch = -1
     while True:
       # get our response, reset the cursor and process the response
       ch = scr.getch()
@@ -120,6 +119,7 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
       # accept anything
       if not confirm:
         return ch
+      # accept something in confirm
       elif ch in confirm:
         return ch
 
@@ -166,6 +166,8 @@ def choicemenu(scr,
   # get side buffer
   lshift = 0
   if maxwidth < width: lshift = (width-maxwidth)//2
+  # toplines include the title and body, these are before the choices
+  choicestart = 2 + len(body) + sum([len(s) for s in body])
   while True:
     # clear the screen
     scr.erase()
@@ -183,8 +185,6 @@ def choicemenu(scr,
       linenum += 1
     # separate body from remainder with another newline
     linenum += 1
-    # track the actual top line of the choices
-    actualtop = linenum
     # i is zero indexed matching hpos
     for i, line in enumerate(choices[topline:]):
       # we cannot go beyond height if choices is a long list
@@ -197,7 +197,7 @@ def choicemenu(scr,
     if curs != 0:
       cursorcol = 4 + lshift + len(choices[hpos])
       if cursorcol < width:
-        scr.move(actualtop + hpos - topline, cursorcol)
+        scr.move(choicestart + hpos - topline, cursorcol)
         curses.curs_set(curs)
     scr.refresh()
     # while we don't need to redraw the screen
@@ -217,7 +217,7 @@ def choicemenu(scr,
         hpos = 0
         topline = 0
       # go to the bottom
-      elif ch == curses.KEY_END and actualtop + len(choices) > height:
+      elif ch == curses.KEY_END and choicestart + len(choices) > height:
         hpos = len(choices) - 1
       # go up
       elif ch == curses.KEY_UP and hpos > 0:
@@ -252,8 +252,8 @@ def choicemenu(scr,
           lshift = (width-maxwidth)//2
     if hpos - topline < 0:
       topline = hpos
-    elif actualtop + hpos - topline >= height:
-      topline = actualtop + hpos - height + 1
+    elif choicestart + hpos - topline >= height:
+      topline = choicestart + hpos - height + 1
 
 '''
 getdirmenu(scr, title)
@@ -310,18 +310,20 @@ def getdirmenu(scr, title='', prompt='Select a directory'):
       topline = 0
 
 '''
-gettextfilemenu(scr, title)
+getfilemenu(scr, title)
 
   This method is used to print a file selection menu on scr
   The navigation begins from the current working directory
   The choices are the contents of the currently selected directory
-  A file opened must be a text file
+
+  perm is the needed permissions for files,
+    all files require read
 
   Returns ->
-    on text file selection: [lines], filename
-    on cancelled: None, None
+    on file selection: filename
+    on cancelled: None
 '''
-def gettextfilemenu(scr, title='', prompt='Select a text file'):
+def getfilemenu(scr, title='', prompt='Select a file', perm=os.R_OK):
   # the path starts at the current working directory
   path = Path.cwd()
   body = [[prompt], [f'Path: {path}']]
@@ -331,10 +333,11 @@ def gettextfilemenu(scr, title='', prompt='Select a text file'):
   while True:
     # get the sorted contents of the directory
     names = sorted([name for name in path.iterdir()])
-    # only keep names we have read permission for
+    # only keep names we have (at least) read permission for
     names = [name for name in names if os.access(name, os.R_OK)]
-    # finally, keep files and any directories with the execute bit
-    names = [name for name in names if name.is_file() or \
+    # finally, keep files and any directories that also have the execute bit
+    names = [name for name in names if \
+              (name.is_file() and os.access(name, perm)) or \
               (name.is_dir() and os.access(name, os.X_OK))]
     # squash to strings and reorder
     # directories before files, directories end with os.path.sep
@@ -363,19 +366,7 @@ def gettextfilemenu(scr, title='', prompt='Select a text file'):
       topline = 0
     # our selection was a file
     else:
-      # return the file contents+name if we can read it as strings
-      try:
-        with open(path / names[ch], 'r') as infile:
-          contents = infile.readlines()
-        if not contents:
-          error = 'File \"' + names[ch] + '\" appears empty'
-        else:
-          return contents, names[ch]
-      except Exception as e:
-        error = str(e).split(':')
-      modalwindow(scr, title=title, curs=2,
-                  body=[[f'Unable to open {names[ch]}'],
-                        ['Press the any key to continue . . . ']], err=error)
+      return f'{path / names[ch]}'
 
 '''
 drawsplitpane(scr,
