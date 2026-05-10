@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 
-import curses, os, sys, termios, tty
+import curses, os, signal, sys
+from collections import deque
+from curses import ascii
 from pathlib import Path
 
 '''
@@ -128,10 +130,19 @@ getinputmenu(scr, title, prompt)
 def getinputmenu(scr, title='', prompt='Enter input:'):
   titlecolor = curses.color_pair(2) | curses.A_BOLD
   itemcolor = curses.color_pair(1)
-  val = ''
-  fd = sys.stdin.fileno()
-  oldfd = termios.tcgetattr(fd)
+  # val and history of val for undo
+  val, history = '', deque(maxlen=32)
   height, width = scr.getmaxyx()
+  # allow ctrl-z to undo (not suspend process)
+  undo = False
+  def ctrlz(signum, frame):
+    nonlocal undo
+    undo = True
+  # just in case someone else handles SIGTSTP
+  prevSIGTSTP = signal.getsignal(signal.SIGTSTP)
+  signal.signal(signal.SIGTSTP, ctrlz)
+  # cursor offset from end of string (number of columns to move left)
+  cursleft = 0
   try:
     while True:
       scr.erase()
@@ -142,46 +153,166 @@ def getinputmenu(scr, title='', prompt='Enter input:'):
       lpos = (width-len(prompt))//2
       if lpos < 0:
         lpos = 0
+      if 2 >= height:
+        break
       scr.insstr(2, lpos, prompt, itemcolor)
       if val:
         line = 4
         lpos = (width-len(val))//2
         if lpos < 0:
           lpos = 0
+        # when len(val) becomes large lpos goes to zero
+        # we can only put width chars in line 4
         scr.insstr(4, lpos, val[:width], itemcolor)
+        # the cursor moves right by len(val)
         lpos += len(val)
+        # we are on line 4
         line = 4
+        # if we need to break prints we track consumed chars
         consumed = 0
-        while lpos >= width:
+        # the lpos didn't fit within the width
+        while lpos > width:
+          # we consumed width chars
           consumed += width
+          # advance the line and break if we go out-of-screen
           line += 1
+          if line >= height:
+            break
+          # insert the next line and decrement lpos
           scr.insstr(line, 0, val[consumed:consumed+width], itemcolor)
           lpos -= width
+        # cursor should now be at (line, lpos-cursleft)
+        # we need to shift the cursor left by cursleft
+        shmt = cursleft
+        # we can do this in line 4
+        if lpos - shmt >= 0:
+          lpos -= shmt
+        # we are going to have to go up to a previous line
+        else:
+          # move the cursor up somewhere
+          while lpos - shmt < 0:
+            # previous line
+            line -= 1
+            # reduce shmt by chars in the line
+            shmt -= lpos
+            # set lpos to the width of the new line
+            lpos = width
+          # lpos >= shmt, we can now take shmt out of lpos
+          lpos -= shmt
+        # we have to be able to move the cursor somewhere in the screen
+        if lpos == width:
+          line += 1
+          lpos = 0
+        if line >= height:
+          break
+        # move the cursor
         scr.move(line, lpos)
       else:
+        # no text yet, just move the cursor if we have height > 4
+        if 4 >= height:
+          break
         scr.move(4, width//2)
       curses.curs_set(2)
       scr.refresh()
       ret = False
       while True:
-        ch = scr.get_wch()
-        if ch == curses.KEY_RESIZE:
-          height, width = scr.getmaxyx()
-          break
-        if ch in [curses.KEY_ENTER, 10, 13, '\n', '\r']:
+        try:
+          # we need wch to get ctrl-z (at least sometimes)
+          ch = scr.get_wch()
+        # we'll get a 'no input' error if SIGTSTP is caught
+        except curses.error as e:
+          # ctrl-z
+          if undo:
+            undo = False
+            if len(history) > 0:
+              val = history.pop()
+              break
+          # ignore 'no input' errors
+          if str(e) == 'no input':
+            continue
+          raise
+        # handle regular int vals
+        if isinstance(ch, int):
+          if ch in [curses.KEY_ENTER, 10, 13]:
+            return val if val else None
+          # escape
+          if ch in [27, 81, 113]:
+            return None
+          if ch in [curses.KEY_BACKSPACE, 8, 127]:
+            if val:
+              history.append(val)
+              val = val[:-1]
+              break
+          if ch == curses.KEY_RESIZE:
+            height, width = scr.getmaxyx()
+            break
+          # ctrl-z
+          if ch == ascii.SUB and lastval != val:
+            val = history.pop()
+            break
+          # move the insert cursor left/right
+          if ch == curses.KEY_LEFT and cursleft < len(val):
+            cursleft += 1
+            break
+          if ch == curses.KEY_RIGHT and cursleft > 0:
+            cursleft -= 1
+            break
+          if ch == curses.KEY_HOME and cursleft != len(val):
+            cursleft = len(val)
+            break
+          if ch == curses.KEY_END and cursleft > 0:
+            cursleft = 0
+            break
+          # not handling this int(ch)
+          continue
+        # isinstance(ch, str) == True
+        # since we use wch we can have strings, handle those
+        # return
+        if ch in ['\r', '\n']:
           return val if val else None
-        if ch in [curses.KEY_BACKSPACE, '\b', 127, '\x7f']:
+        # backspace
+        if ch in ['\b', '\x1b']:
           if val:
+            history.append(val)
             val = val[:-1]
             break
-        if isinstance(ch, str):
+        # some other string, this is input
+        history.append(val)
+        # cursleft is 0 we append chars
+        if cursleft == 0:
           val += ch
-          break
-      if ret:
+        # otherwise we need to put the char in the middle
+        else:
+          val = val[:-cursleft] + ch + val[-cursleft:]
+        # NOTE:
+        # 10ms between inputs to combine rapid chars or paste
+        #  you may possibly need to adjust the timeout:
+        #   if may gobble multiple chars without printing them (decrease)
+        #   if you paste and the paste is broken (increase)
+        # this shouldn't be much of a problem, really just a fancy feature
+        scr.timeout(10)
+        try:
+          while True:
+            try:
+              ch = scr.get_wch()
+            except curses.error:
+              break
+            if not isinstance(ch, str):
+              # NOTE: not re-handling non chars, this is probably fine
+              break
+            # same char splicing as above
+            if cursleft == 0:
+              val += ch
+            else:
+              val = val[:-cursleft] + ch + val[-cursleft:]
+        # set getch to be blocking again
+        finally:
+          scr.timeout(-1)
+        # we took at least 1 char, break to print it
         break
   finally:
-    termios.tcsetattr(fd, termios.TCSADRAIN, oldfd)
-
+    # restore the SIGTSTP signal handler, if there was one
+    signal.signal(signal.SIGTSTP, prevSIGTSTP)
 '''
 choicemenu(scr, title, body, choices, infobox, curs, hpos)
 
