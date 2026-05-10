@@ -131,6 +131,8 @@ class DiffWindow:
     curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
     # this will be background / border
     curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    # this will be hidden / inactive text
+    curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_BLACK)
     # suppress echo of keypresses
     curses.noecho()
     # immediately respond to keypresses
@@ -359,15 +361,16 @@ class DiffWindow:
     Print command information
   '''
   def commands(self, title=''):
-    controls = [['Commands available while the diff view is active:'],
-                 ['                            Quit:  escape, q, Q',
-                  '       Toggle match highlighting:  d, D, h, H',
-                  '     Toggle left/right pane lock:  space',
-                  'Toggle left/right pane scrolling:  tab',
-                  '  Move pane separator left/right:  +/-',
-                  '     Toggle line-number printing:  n, N',
-                  '      Reset pane separator shift:  ='],
-                  ['Press the any key to return to the main menu . . . ']]
+    controls = ['Commands available while the diff view is active:',
+                '',
+                '                            Quit:  escape, q, Q',
+                '       Toggle match highlighting:  d, D, h, H',
+                '     Toggle left/right pane lock:  space',
+                'Toggle left/right pane scrolling:  tab',
+                '  Move pane separator left/right:  +/-',
+                '     Toggle line-number printing:  n, N',
+                '      Reset pane separator shift:  =',
+                ]
     modalwindow(self.stdscr, title=title, body=controls, curs=2)
 
   '''
@@ -384,7 +387,7 @@ class DiffWindow:
     # the title for each window
     title = 'DiffWindow - a Python curses script to compare 2 text files'
     # the body text
-    body = [['Choose an option from the menu below:']]
+    body = ['Choose an option from the menu below:', '']
     # the choices
     choices = ['Select the left-hand side file',
                 'Select the right-hand side file',
@@ -408,7 +411,6 @@ class DiffWindow:
         name = getfilemenu(self.stdscr, title=title)
         if name is not None and os.path.getsize(name) == 0:
           modalwindow(self.stdscr, title=title, curs=2,
-                      body=[['Press the any key to continue . . . ']],
                       err=[f'File {os.path.basename(name)} appears empty'])
           name = None
         # didn't have a lhs before and didn't get one
@@ -434,7 +436,6 @@ class DiffWindow:
         name = getfilemenu(self.stdscr, title=title)
         if name is not None and os.path.getsize(name) == 0:
           modalwindow(self.stdscr, title=title, curs=2,
-                      body=[['Press the any key to continue . . . ']],
                       err=[f'File {os.path.basename(name)} appears empty'])
           name = None
         # didn't have a rhs before and didn't get one
@@ -459,18 +460,15 @@ class DiffWindow:
       elif legend[ch] == 'diff':
         if not lhs and not rhs:
           modalwindow(self.stdscr, title=title, curs=2,
-                  body=[['Unable to show the diff'],
-                        ['Press the any key to continue . . . ']],
+                  body=['Unable to show the diff'],
                   err='Left- and Right- side files must be selected first!')
         elif not lhs:
           modalwindow(self.stdscr, title=title, curs=2,
-                  body=[['Unable to show the diff'],
-                        ['Press the any key to continue . . . ']],
+                  body=['Unable to show the diff'],
                   err='Left- side file must be selected first!')
         elif not rhs:
           modalwindow(self.stdscr, title=title, curs=2,
-                  body=[['Unable to show the diff'],
-                        ['Press the any key to continue . . . ']],
+                  body=['Unable to show the diff'],
                   err='Right- side file must be selected first!')
         else:
           if not isinstance(lhs, list):
@@ -479,8 +477,7 @@ class DiffWindow:
                 lhs = infile.readlines()
             except Exception as e:
               modalwindow(self.stdscr, title=title, curs=2,
-                          body=[[f'Unable to open {lhs}'],
-                                ['Press the any key to continue . . . ']],
+                          body=[f'Unable to open {lhs}'],
                           err=str(e).split(':'))
               lhs = None
               self.ltitle = 'left'
@@ -492,8 +489,7 @@ class DiffWindow:
                 rhs = infile.readlines()
             except Exception as e:
               modalwindow(self.stdscr, title=title, curs=2,
-                          body=[[f'Unable to open {rhs}'],
-                                ['Press the any key to continue . . . ']],
+                          body=[f'Unable to open {rhs}'],
                           err=str(e).split(':'))
               rhs = None
               self.ltitle = 'right'

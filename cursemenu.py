@@ -33,8 +33,10 @@ modalwindow(scr, title, body, err, curs, confirm)
   if err, err can be a single string or a list of strings
   If lines are within error, they are printed followed by a newline
 
-  if body, it is a list of lists with strings
+  if body, it is a list of strings
   if lines are within body, they are printed followed by a newline
+
+  prompt is printed following the body, if it is not empty
 
   curses.curs_set is set with curs
     0 is hidden
@@ -46,8 +48,14 @@ modalwindow(scr, title, body, err, curs, confirm)
 
   the accepting result of getch is returned from this function
 '''
-def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
-  maxwidth = max(len(title), max(len(l) for s in body for l in s))
+def modalwindow(scr, title='', body=[], err=[], curs=0,
+                prompt='Press the any key to continue . . . ', confirm=[]):
+  try:
+    maxwidth = max(len(l) for l in body)
+  except ValueError:
+    maxwidth=0
+  if prompt:
+    maxwidth = max(maxwidth,len(prompt))
   if isinstance(err, str):
     maxwidth = max(maxwidth,len(err))
   elif err:
@@ -75,29 +83,31 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
     # print an error message if we have one
     if err:
       linenum += 1
-      if err:
-        if type(err) is list:
-          for e in err:
+      if type(err) is list:
+        for e in err:
+            linenum += 1
+            if linenum >= height: break
             if e:
-              linenum += 1
-              if linenum >= height: break
               scr.insstr(linenum, lshift, e, errorcolor)
               cursorcol = len(e)
-        else:
-          linenum += 1
-          if linenum < height:
-            scr.insstr(linenum, lshift, err, errorcolor)
-            cursorcol = len(err)
+      else:
+        linenum += 1
+        if linenum < height:
+          scr.insstr(linenum, lshift, err, errorcolor)
+          cursorcol = len(err)
     if body:
       linenum += 1
-      for section in body:
+      for line in body:
         linenum += 1
-        for line in section:
-          linenum += 1
-          if line:
-            if linenum >= height: break
-            scr.insstr(linenum, lshift, line, itemcolor)
-            cursorcol = len(line)
+        if line:
+          if linenum >= height: break
+          scr.insstr(linenum, lshift, line, itemcolor)
+          cursorcol = len(line)
+    if prompt:
+      linenum += 2
+      if linenum >= height: break
+      scr.insstr(linenum, lshift, prompt, itemcolor)
+      cursorcol = len(prompt)
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
       cursorcol += lshift
@@ -227,6 +237,7 @@ def getinputmenu(scr, title='', prompt='Enter input:'):
             if len(history) > 0:
               val = history.pop()
               break
+            continue
           # ignore 'no input' errors
           if str(e) == 'no input':
             continue
@@ -286,11 +297,12 @@ def getinputmenu(scr, title='', prompt='Enter input:'):
           val = val[:-cursleft] + ch + val[-cursleft:]
         # NOTE:
         # 10ms between inputs to combine rapid chars or paste
+        # set getinputmenu.timeout = an int (milliseconds)
         #  you may possibly need to adjust the timeout:
-        #   if may gobble multiple chars without printing them (decrease)
+        #   if you gobble multiple chars without printing them (decrease)
         #   if you paste and the paste is broken (increase)
         # this shouldn't be much of a problem, really just a fancy feature
-        scr.timeout(10)
+        scr.timeout(getinputmenu.timeout)
         try:
           while True:
             try:
@@ -313,6 +325,8 @@ def getinputmenu(scr, title='', prompt='Enter input:'):
   finally:
     # restore the SIGTSTP signal handler, if there was one
     signal.signal(signal.SIGTSTP, prevSIGTSTP)
+getinputmenu.timeout=10
+
 '''
 choicemenu(scr, title, body, choices, infobox, curs, hpos)
 
@@ -320,16 +334,14 @@ choicemenu(scr, title, body, choices, infobox, curs, hpos)
 
   The title is drawn on the first line
   An empty line separates the title from the body
-  The body is a list of lists of strings
-  Each is separated by a line
+  The body is a list of strings
 
   The remaining lines are "choice" lines which can be scrolled
   The current selection at hpos will be highlighted
-  Empty strings can be used and are skipped when scrolling:
-    Choosable lines must not be empty
-    The first and last line of choices must not be empty strings
-    Two choice lines may have a single empty string between them
-    (empty strings shouldn't be adjacent in choices)
+  Empty strings can be used
+    but their indices should be included in disabled
+    unless you an empty string is a valid return
+  Disabled is a list of indices that are disabled and shouldn't be chosen
 
   The user makes their selection with navigation keys
   When enter is pressed, the corresponding index of choices is returned
@@ -341,17 +353,22 @@ choicemenu(scr, title, body, choices, infobox, curs, hpos)
     2 is (possibly) a block
 '''
 def choicemenu(scr,
-              title='', body=[[]], choices=[],
+              title='', body=[], choices=[], disabled=[],
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
+  havechoices = 0
+  while havechoices in disabled:
+    havechoices += 1
+  havechoices = havechoices < len(choices)
   # track width to center text
   try:
-    maxwidth = max(len(title), max(len(l) for s in body for l in s))
+    maxwidth =  max(len(l) for l in body)
   # nothing in the body
   except ValueError:
-    maxwidth = len(title)
+    maxwidth = 0
   maxwidth = max(maxwidth, max(len(c) for c in choices))
   # set colors to be used
+  disabledcolor = curses.color_pair(5) | curses.A_BOLD
   titlecolor = curses.color_pair(2) | curses.A_BOLD
   itemcolor = curses.color_pair(1)
   activecolor = curses.color_pair(1) | curses.A_BOLD
@@ -362,7 +379,7 @@ def choicemenu(scr,
   if lshift < 0:
     lshift = 0
   # toplines include the title and body, these are before the choices
-  choicestart = 2 + len(body) + sum([len(s) for s in body])
+  choicestart = 2 + len(body)
   while True:
     # clear the screen
     scr.erase()
@@ -373,22 +390,24 @@ def choicemenu(scr,
     scr.insstr(0, lpos, title, titlecolor)
     # track the line number we are printing to
     linenum = 1
-    for section in body:
-      # print all lines in a section of the body
-      for line in section:
-        linenum += 1
-        if linenum >= height: break
-        scr.insstr(linenum, lshift, line, itemcolor)
-      # separate body sections by a newline
+    # print all lines of the body
+    for line in body:
       linenum += 1
+      if linenum >= height: break
+      if line:
+        scr.insstr(linenum, lshift, line, itemcolor)
     # separate body from remainder with another newline
     linenum += 1
+    assert choicestart == linenum, f'{choicestart=} {linenum=}'
     # i is zero indexed matching hpos
     for i, line in enumerate(choices[topline:]):
       # we cannot go beyond height if choices is a long list
       if linenum >= height: break
       # set the color to active if this is our highlight position
-      color = activecolor if i+topline == hpos else itemcolor
+      if havechoices and i+topline == hpos and lshift > 1:
+        scr.insch(linenum, lshift-2, curses.ACS_DIAMOND, activecolor)
+      color = disabledcolor if i+topline in disabled or not havechoices else \
+              activecolor if i+topline == hpos else itemcolor
       scr.insstr(linenum, lshift, line, color)
       linenum += 1
     # set the cursor according to the argument and refresh the screen
@@ -410,44 +429,53 @@ def choicemenu(scr,
       if ch in [curses.KEY_ENTER, 10, 13]: return topline, hpos
       # allow to return without making a selection with escape or q
       if ch in [27, 81, 113]: return None, None
+      # the direction we are moving (up=-1, neither=0, down=1)
+      direction = 0
       # go to the top
       if ch == curses.KEY_HOME:
         hpos = 0
         topline = 0
+        direction = -1
       # go to the bottom
-      elif ch == curses.KEY_END and choicestart + len(choices) > height:
+      elif ch == curses.KEY_END and choicestart + len(choices) < height:
         hpos = len(choices) - 1
+        direction = 1
       # go up
       elif ch == curses.KEY_UP and hpos > 0:
         hpos -= 1
-        if not choices[hpos]:
-          hpos -= 1
+        direction = -1
       # go down
       elif ch == curses.KEY_DOWN and hpos < len(choices) - 1:
         hpos += 1
-        # skip over blank lines
-        if not choices[hpos]:
-          hpos += 1
+        direction = 1
       # jump up
       elif ch == curses.KEY_PPAGE and hpos > 0:
         hpos -= 4
         if hpos < 0:
           hpos = 0
           topline = 0
-        if not choices[hpos]:
-          hpos -= 1
+        direction = -1
       # jump down
       elif ch == curses.KEY_NPAGE and hpos < len(choices) - 1:
         hpos += 4
         if hpos >= len(choices) - 1: hpos = len(choices) - 1
-        if not choices[hpos]:
-          hpos += 1
+        direction = 1
       elif ch == curses.KEY_RESIZE:
         # get new dimensions
         height, width = scr.getmaxyx()
         lshift = (width-maxwidth)//2
         if lshift < 0:
           lshift = 0
+    if direction != 0 and havechoices:
+      while hpos in disabled:
+        hpos += direction
+      # if we go OOB move us to the nearest choice
+      if hpos == -1 or hpos == len(choices):
+        direction = -direction
+        hpos += direction
+        while hpos in disabled:
+          hpos += direction
+        #we must be at a choice
     if hpos - topline < 0:
       topline = hpos
     elif choicestart + hpos - topline >= height:
@@ -468,7 +496,7 @@ getdirmenu(scr, title)
 def getdirmenu(scr, title='', prompt='Select a directory'):
   # the path starts at the current working directory
   path = Path.cwd()
-  body = [[prompt], [f'Dir: {path}']]
+  body = [prompt, '', f'Dir: {path}', '']
   topline = 0
   ch = 0
   # when we move to a new directory update the body text and reset pos
@@ -484,9 +512,9 @@ def getdirmenu(scr, title='', prompt='Select a directory'):
     if path.parents:
       names.insert(0, '..')
     # add the confirm option
-    names = ['Select', ''] + names
+    names = ['Select', '\b\bChange directory:'] + names
     # get the response
-    topline, ch = choicemenu(scr, title=title, body=body,
+    topline, ch = choicemenu(scr, title=title, body=body, disabled=[1],
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
     if ch is None:
@@ -497,13 +525,13 @@ def getdirmenu(scr, title='', prompt='Select a directory'):
     # we selected to go up
     if names[ch] == '..':
       path = path.parent
-      body[-1][-1] = f'Dir: {path}'
+      body[-2] = f'Dir: {path}'
       ch = 0
       topline = 0
     # our selection is a subdirectory
     else:
       path = path / names[ch]
-      body[-1][-1] = f'Dir: {path}'
+      body[-2] = f'Dir: {path}'
       ch = 0
       topline = 0
 
@@ -524,9 +552,9 @@ getfilemenu(scr, title)
 def getfilemenu(scr, title='', prompt='Select a file', perm=os.R_OK):
   # the path starts at the current working directory
   path = Path.cwd()
-  body = [[prompt], [f'Path: {path}']]
+  body = [prompt, '', f'Path: {path}', '']
   topline = 0
-  ch = 0
+  ch = 1
   # when we move to a new directory update the body text and reset pos
   while True:
     # get the sorted contents of the directory
@@ -545,21 +573,24 @@ def getfilemenu(scr, title='', prompt='Select a file', perm=os.R_OK):
     # give an option to go up a level unless we are at the root
     if path.parents:
       names.insert(0, '..')
+    names = ['\b\bChange path:'] + names
+    disabled = [0, names.index('')]
+    names[disabled[-1]] = '\b\bSelect file:'
     # get the response
-    topline, ch = choicemenu(scr, title=title, body=body,
+    topline, ch = choicemenu(scr, title=title, body=body, disabled=disabled,
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
     if ch is None: return None
     # we selected to go up
     if names[ch] == '..':
       path = path.parent
-      body[-1][-1] = f'Path: {path}'
+      body[-2] = f'Path: {path}'
       ch = 0
       topline = 0
     # our selection is a subdirectory
     elif names[ch].endswith(os.path.sep):
       path = path / names[ch]
-      body[-1][-1] = f'Path: {path}'
+      body[-2] = f'Path: {path}'
       ch = 0
       topline = 0
     # our selection was a file
