@@ -23,7 +23,7 @@ from string import printable
 '''
 
 '''
-showmenu(scr, title, body, err, choices, infobox, curs, hpos)
+choicemenu(scr, title, body, err, choices, infobox, curs, hpos)
 
   This method is used to print a text menu using the screen scr
 
@@ -32,8 +32,14 @@ showmenu(scr, title, body, err, choices, infobox, curs, hpos)
   The body is a list of lists of strings
   Each is separated by a line
   The error, if present, is then printed in error color
+
   The remaining lines are "choice" lines which can be scrolled
   The current selection at hpos will be highlighted
+  Empty strings can be used and are skipped when scrolling:
+    Choosable lines must not be empty
+    The first and last line of choices must not be empty strings
+    Two choice lines may have a single empty string between them
+    (empty strings shouldn't be adjacent in choices)
 
   The user makes their selection with navigation keys
   When enter is pressed, the corresponding index of choices is returned
@@ -46,16 +52,14 @@ showmenu(scr, title, body, err, choices, infobox, curs, hpos)
     1 is (possibly) an underscore/line
     2 is (possibly) a block
 '''
-def showmenu(scr,
+def choicemenu(scr,
               title='', body=[[]], err=None, choices=[],
               infobox=False, curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
-  # track width
-  maxwidth = len(title)
-  for section in body:
-    for line in section: maxwidth = max(len(line),maxwidth)
+  # track width to center text
+  maxwidth = max(len(title), max(len(s) for s in body))
   errorlen = 1
-  if type(err) is str: maxwidth = max(len(err),maxwidth)
+  if type(err) is str: maxwidth = max(maxwidth,len(err))
   elif type(err) is list:
     errorlen = len(err)
     maxwidth = max(maxwidth, max(len(e) for e in err))
@@ -65,6 +69,8 @@ def showmenu(scr,
   itemcolor = curses.color_pair(1)
   activecolor = curses.color_pair(1) | curses.A_BOLD
   errorcolor = curses.color_pair(3) | curses.A_BOLD
+  # get the dimensions
+  height, width = scr.getmaxyx()
   # when the counter hits zero make the error disappear
   errorcounter = None
   while True:
@@ -72,8 +78,6 @@ def showmenu(scr,
       topline -= errorlen + 1
       if topline < 0: topline = 0
       err = None
-    # get the current dimensions
-    height, width = scr.getmaxyx()
     # get side buffer
     lshift = 0
     if maxwidth < width: lshift = (width-maxwidth)//2
@@ -87,6 +91,7 @@ def showmenu(scr,
       # print all lines in a section of the body
       for line in section:
         linenum += 1
+        if linenum >= height: break
         scr.insstr(linenum, 4+lshift, line, itemcolor)
       # separate body sections by a newline
       linenum += 1
@@ -97,10 +102,12 @@ def showmenu(scr,
       if type(err) is list:
         for e in err:
           if e == '': continue
+          if linenum >= height: break
           scr.insstr(linenum, 4+lshift, e, errorcolor)
           linenum += 1
         linenum -= 1
       else:
+        if linenum >= height: break
         scr.insstr(linenum, 4+lshift, err, errorcolor)
       linenum += 2
       if errorcounter is None:
@@ -114,15 +121,13 @@ def showmenu(scr,
     # track the actual top line of the choices
     actualtop = linenum
     # i is zero indexed matching hpos
-    for i, line in enumerate(choices):
+    for i, line in enumerate(choices[topline:]):
       # we cannot go beyond height if choices is a long list
-      if linenum == height: break
-      # print this line
-      if i >= topline:
-        # set the color to active if this is our highlight position
-        color = activecolor if i == hpos else itemcolor
-        scr.insstr(linenum, 4+lshift, line, color)
-        linenum += 1
+      if linenum >= height: break
+      # set the color to active if this is our highlight position
+      color = activecolor if i+topline == hpos else itemcolor
+      scr.insstr(linenum, 4+lshift, line, color)
+      linenum += 1
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
       cursorcol = 4 + lshift + len(choices[hpos])
@@ -130,48 +135,113 @@ def showmenu(scr,
         scr.move(actualtop + hpos - topline, cursorcol)
         curses.curs_set(curs)
     scr.refresh()
-    # get our response, reset the cursor and process the response
-    ch = scr.getch()
-    curses.curs_set(0)
-    # allow to return without making a selection:
-    # escape = 27, 'Q'=81, 'q'=113
-    if ch in [27, 81, 113]: return None, None
-    # this argument indicates we return immediately on a keypress
-    if infobox: return
-    # go to the top
-    elif ch == curses.KEY_HOME:
-      hpos = 0
-      topline = 0
-    # go to the bottom
-    elif ch == curses.KEY_END:
-      if actualtop + len(choices) > height:
-        topline = len(choices) - height + actualtop
-        hpos = len(choices) - 1
-    # go up
-    elif ch == curses.KEY_UP:
-      if hpos > 0:
-        hpos -= 1
-        if actualtop + hpos - topline < actualtop: topline -= 1
-    # go down
-    elif ch == curses.KEY_DOWN:
-      if hpos < len(choices) - 1:
-        hpos += 1
-        if actualtop + hpos - topline == height: topline += 1
-    # jump up
-    elif ch == curses.KEY_PPAGE and hpos > 0:
-      hpos -= 4
-      if hpos - topline < 0: topline = hpos
-      if hpos < 0:
+    # while we don't need to redraw the screen
+    ch = -1
+    while ch not in (curses.KEY_HOME, curses.KEY_END, curses.KEY_UP,
+                    curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE,
+                    curses.KEY_RESIZE):
+      # get our response, reset the cursor and process the response
+      ch = scr.getch()
+      curses.curs_set(0)
+      # this argument indicates we return immediately on a keypress
+      if infobox: return
+      # on enter we return our highlighted position
+      if ch in [curses.KEY_ENTER, 10, 13]: return topline, hpos
+      # allow to return without making a selection with escape or q
+      if ch in [27, 81, 113]: return None, None
+      # go to the top
+      if ch == curses.KEY_HOME:
         hpos = 0
         topline = 0
-    # jump down
-    elif ch == curses.KEY_NPAGE:
-      hpos += 4
-      if hpos >= len(choices) - 1: hpos = len(choices) - 1
-      if actualtop + hpos - topline >= height:
-        topline += actualtop + hpos - topline - height + 1
-    # on enter we return our highlighted position
-    elif ch in [curses.KEY_ENTER, 10, 13]: return topline, hpos
+      # go to the bottom
+      elif ch == curses.KEY_END and actualtop + len(choices) > height:
+        hpos = len(choices) - 1
+      # go up
+      elif ch == curses.KEY_UP and hpos > 0:
+        hpos -= 1
+        if not choices[hpos]:
+          hpos -= 1
+      # go down
+      elif ch == curses.KEY_DOWN and hpos < len(choices) - 1:
+        hpos += 1
+        # skip over blank lines
+        if not choices[hpos]:
+          hpos += 1
+      # jump up
+      elif ch == curses.KEY_PPAGE and hpos > 0:
+        hpos -= 4
+        if hpos < 0:
+          hpos = 0
+          topline = 0
+        if not choices[hpos]:
+          hpos -= 1
+      # jump down
+      elif ch == curses.KEY_NPAGE and hpos < len(choices) - 1:
+        hpos += 4
+        if hpos >= len(choices) - 1: hpos = len(choices) - 1
+        if not choices[hpos]:
+          hpos += 1
+      elif ch == curses.KEY_RESIZE:
+        # get new dimensions
+        height, width = scr.getmaxyx()
+    if hpos - topline < 0:
+      topline = hpos
+    elif actualtop + hpos - topline >= height:
+      topline = actualtop + hpos - height + 1
+
+'''
+getdirmenu(scr, title)
+
+  This method is used to print a file selection menu on scr
+  The navigation begins from the current working directory
+  The choices are the contents of the currently selected directory
+  The selection will be a directory
+
+  Returns ->
+    on directoryext selection: path (str)
+    on cancelled: None
+'''
+def getdirmenu(scr, title='', prompt='Select a directory'):
+  # the path starts at the current working directory
+  path = Path.cwd()
+  body = [[prompt], [f'Dir: {path}']]
+  topline = 0
+  ch = 0
+  # when we move to a new directory update the body text and reset pos
+  while True:
+    # get the sorted contents of the directory
+    names = sorted([name for name in path.iterdir()])
+    # only keep names we have read permission for
+    names = [name for name in names if os.access(name, os.R_OK)]
+    # finally, keep directories with the execute bit
+    names = [str(name) for name in names if \
+              name.is_dir() and os.access(name, os.X_OK)]
+    # give an option to go up a level unless we are at the root
+    if path.parents:
+      names.insert(0, '..')
+    # add the confirm option
+    names = ['Select', ''] + names
+    # get the response
+    topline, ch = choicemenu(scr, title=title, body=body, err=None,
+                            choices=names, topline=topline, hpos=ch)
+    # allow to return without opening a file:
+    if ch is None:
+      return None
+    # choice is Select
+    if ch == 0:
+      return f'{path}'
+    # we selected to go up
+    if names[ch] == '..':
+      path = path.parent
+      body[-1][-1] = f'Dir: {path}'
+      ch = 0
+      topline = 0
+    # our selection is a subdirectory
+    else:
+      path = path / names[ch]
+      body[-1][-1] = f'Dir: {path}'
+      ch = 0
+      topline = 0
 
 '''
 gettextfilemenu(scr, title)
@@ -185,11 +255,11 @@ gettextfilemenu(scr, title)
     on text file selection: [lines], filename
     on cancelled: None, None
 '''
-def gettextfilemenu(scr, title=''):
+def gettextfilemenu(scr, title='', prompt='Select a text file'):
   # the path starts at the current working directory
   path = Path.cwd()
   error = None
-  body = [['Select a text file'], [f'Path: {path}']]
+  body = [[prompt], [f'Path: {path}']]
   topline = 0
   ch = 0
   # when we move to a new directory update the body text and reset pos
@@ -204,12 +274,13 @@ def gettextfilemenu(scr, title=''):
     # squash to strings and reorder
     # directories before files, directories end with os.path.sep
     names = [str(name.name)+os.path.sep for name in names if name.is_dir()] + \
+            [''] + \
             [str(name.name) for name in names if name.is_file()]
     # give an option to go up a level unless we are at the root
     if path.parents:
       names.insert(0, '..')
     # get the response
-    topline, ch = showmenu(scr, title=title, body=body, err=error,
+    topline, ch = choicemenu(scr, title=title, body=body, err=error,
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
     if ch is None: return None, None
