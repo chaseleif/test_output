@@ -2,7 +2,7 @@
 
 import curses, os, re, sys
 sys.dont_write_bytecode = True
-from cursemenu import choicemenu, gettextfilemenu, drawsplitpane
+from cursemenu import modalwindow, choicemenu, gettextfilemenu, drawsplitpane
 
 '''
     DiffWindow - a Python script to view difference between 2 text files
@@ -365,10 +365,9 @@ class DiffWindow:
                   'Toggle left/right pane scrolling:  tab',
                   '  Move pane separator left/right:  +/-',
                   '     Toggle line-number printing:  n, N',
-                  '      Reset pane separator shift:  =']]
-    choices = ['Press the any key to return to the main menu . . . ']
-    choicemenu(self.stdscr, title=title, body=controls,
-              choices=choices, infobox=True, curs=2)
+                  '      Reset pane separator shift:  ='],
+                  ['Press the any key to return to the main menu . . . ']]
+    modalwindow(self.stdscr, title=title, body=controls, curs=2)
 
   '''
   mainmenu()
@@ -395,16 +394,14 @@ class DiffWindow:
     legend = ['lhs','rhs','diff','commands','quit']
     # initialize our variables
     ch = 0
-    error = None
     lhs, rhs = None, None
     # while quit is not chosen
     while True:
       # get a choice
-      _, ch = choicemenu(self.stdscr, title=title, body=body,
-                        err=error, choices=choices, hpos=ch)
+      _, ch = choicemenu(self.stdscr,
+                          title=title, body=body, choices=choices, hpos=ch)
       # allow to quit on escape, q, or Q:
       if ch is None: break
-      error=None
       # open a file to set lhs
       if legend[ch] == 'lhs':
         ret, name = gettextfilemenu(self.stdscr, title=title)
@@ -450,11 +447,20 @@ class DiffWindow:
       # show the diff of lhs and rhs
       elif legend[ch] == 'diff':
         if not lhs and not rhs:
-          error = 'Left- and Right- side files must be selected first!'
+          modalwindow(self.stdscr, title=title, curs=2,
+                  body=[['Unable to show the diff'],
+                        ['Press the any key to continue . . . ']],
+                  err='Left- and Right- side files must be selected first!')
         elif not lhs:
-          error = 'Left- side file must be selected first!'
+          modalwindow(self.stdscr, title=title, curs=2,
+                  body=[['Unable to show the diff'],
+                        ['Press the any key to continue . . . ']],
+                  err='Left- side file must be selected first!')
         elif not rhs:
-          error = 'Right- side file must be selected first!'
+          modalwindow(self.stdscr, title=title, curs=2,
+                  body=[['Unable to show the diff'],
+                        ['Press the any key to continue . . . ']],
+                  err='Right- side file must be selected first!')
         else:
           ltitle = self.ltitle
           rtitle = self.rtitle

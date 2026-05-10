@@ -23,7 +23,108 @@ from string import printable
 '''
 
 '''
-choicemenu(scr, title, body, err, choices, infobox, curs, hpos)
+modalwindow(scr, title, body, err, curs, confirm)
+
+  This method pops up a modal window for information or error messages
+
+  If there is a title, it is printed followed by a newline
+
+  if err, err can be a single string or a list of strings
+  If lines are within error, they are printed followed by a newline
+
+  if body, it is a list of lists with strings
+  if lines are within body, they are printed followed by a newline
+
+  curses.curs_set is set with curs
+    0 is hidden
+    1 is (possibly) an underscore/line
+    2 is (possibly) a block
+
+  confirm is a list of accepting keypresses
+  if confirm is empty then any return from getch is accepting
+
+  the accepting result of getch is returned from this function
+'''
+def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
+  maxwidth = max(len(title), max(len(s) for s in body))
+  if isinstance(err, str):
+    maxwidth = max(maxwidth,len(err))
+  elif err:
+    maxwidth = max(maxwidth, max(len(e) for e in err))
+  # set colors to be used
+  titlecolor = curses.color_pair(2) | curses.A_BOLD
+  itemcolor = curses.color_pair(1)
+  errorcolor = curses.color_pair(3) | curses.A_BOLD
+  # get the dimensions
+  height, width = scr.getmaxyx()
+  # get side buffer
+  lshift = 0
+  if maxwidth < width:
+    lshift = (width-maxwidth)//2
+  while True:
+    # clear the screen
+    scr.erase()
+    # track the line number we are printing to
+    linenum = 0
+    # add the title
+    if title:
+      scr.insstr(linenum, 0+lshift, title, titlecolor)
+    # print all lines in a section of the body
+    cursorcol = len(title)
+    # print an error message if we have one
+    if err:
+      linenum += 1
+      if err:
+        if type(err) is list:
+          for e in err:
+            if e:
+              linenum += 1
+              if linenum >= height: break
+              scr.insstr(linenum, 4+lshift, e, errorcolor)
+              cursorcol = len(e)
+        else:
+          linenum += 1
+          if linenum < height:
+            scr.insstr(linenum, 4+lshift, err, errorcolor)
+            cursorcol = len(err)
+    if body:
+      linenum += 1
+      for section in body:
+        linenum += 1
+        for line in section:
+          linenum += 1
+          if line:
+            if linenum >= height: break
+            scr.insstr(linenum, 4+lshift, line, itemcolor)
+            cursorcol = len(line)
+    # set the cursor according to the argument and refresh the screen
+    if curs != 0:
+      cursorcol += 4 + lshift
+      if linenum < height and cursorcol < width:
+        scr.move(linenum, cursorcol)
+        curses.curs_set(curs)
+    scr.refresh()
+    # while we don't need to redraw the screen
+    ch = -1
+    while True:
+      # get our response, reset the cursor and process the response
+      ch = scr.getch()
+      curses.curs_set(0)
+      if ch == curses.KEY_RESIZE:
+        # get new dimensions and redraw
+        height, width = scr.getmaxyx()
+        lshift = 0
+        if maxwidth < width:
+          lshift = (width-maxwidth)//2
+        break
+      # accept anything
+      if not confirm:
+        return ch
+      elif ch in confirm:
+        return ch
+
+'''
+choicemenu(scr, title, body, choices, infobox, curs, hpos)
 
   This method is used to print a text menu using the screen scr
 
@@ -31,7 +132,6 @@ choicemenu(scr, title, body, err, choices, infobox, curs, hpos)
   An empty line separates the title from the body
   The body is a list of lists of strings
   Each is separated by a line
-  The error, if present, is then printed in error color
 
   The remaining lines are "choice" lines which can be scrolled
   The current selection at hpos will be highlighted
@@ -45,42 +145,28 @@ choicemenu(scr, title, body, err, choices, infobox, curs, hpos)
   When enter is pressed, the corresponding index of choices is returned
   If escape, q, or Q is pressed, None is returned
 
-  If infobox is True this method will return on the first keypress
-
   curses.curs_set is set with the curs parameter
     0 is hidden
     1 is (possibly) an underscore/line
     2 is (possibly) a block
 '''
 def choicemenu(scr,
-              title='', body=[[]], err=None, choices=[],
-              infobox=False, curs=0, topline=0, hpos=0):
+              title='', body=[[]], choices=[],
+              curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
   # track width to center text
   maxwidth = max(len(title), max(len(s) for s in body))
-  errorlen = 1
-  if type(err) is str: maxwidth = max(maxwidth,len(err))
-  elif type(err) is list:
-    errorlen = len(err)
-    maxwidth = max(maxwidth, max(len(e) for e in err))
-  for line in choices: maxwidth = max(len(line),maxwidth)
+  maxwidth = max(maxwidth, max(len(c) for c in choices))
   # set colors to be used
   titlecolor = curses.color_pair(2) | curses.A_BOLD
   itemcolor = curses.color_pair(1)
   activecolor = curses.color_pair(1) | curses.A_BOLD
-  errorcolor = curses.color_pair(3) | curses.A_BOLD
   # get the dimensions
   height, width = scr.getmaxyx()
-  # when the counter hits zero make the error disappear
-  errorcounter = None
+  # get side buffer
+  lshift = 0
+  if maxwidth < width: lshift = (width-maxwidth)//2
   while True:
-    if err and errorcounter == 0:
-      topline -= errorlen + 1
-      if topline < 0: topline = 0
-      err = None
-    # get side buffer
-    lshift = 0
-    if maxwidth < width: lshift = (width-maxwidth)//2
     # clear the screen
     scr.erase()
     # add the title
@@ -97,27 +183,6 @@ def choicemenu(scr,
       linenum += 1
     # separate body from remainder with another newline
     linenum += 1
-    if err:
-      # print an error message if we have one, add 2 lines
-      if type(err) is list:
-        for e in err:
-          if e == '': continue
-          if linenum >= height: break
-          scr.insstr(linenum, 4+lshift, e, errorcolor)
-          linenum += 1
-        linenum -= 1
-      else:
-        if linenum >= height: break
-        scr.insstr(linenum, 4+lshift, err, errorcolor)
-      linenum += 2
-      if errorcounter is None:
-        errorcounter = 5
-        if height-linenum < len(choices):
-          topline += errorlen + 1
-          # if the error pushes hpos out of sight
-          if topline > hpos: topline = hpos
-      else:
-        errorcounter -= 1
     # track the actual top line of the choices
     actualtop = linenum
     # i is zero indexed matching hpos
@@ -143,8 +208,6 @@ def choicemenu(scr,
       # get our response, reset the cursor and process the response
       ch = scr.getch()
       curses.curs_set(0)
-      # this argument indicates we return immediately on a keypress
-      if infobox: return
       # on enter we return our highlighted position
       if ch in [curses.KEY_ENTER, 10, 13]: return topline, hpos
       # allow to return without making a selection with escape or q
@@ -184,6 +247,9 @@ def choicemenu(scr,
       elif ch == curses.KEY_RESIZE:
         # get new dimensions
         height, width = scr.getmaxyx()
+        lshift = 0
+        if maxwidth < width:
+          lshift = (width-maxwidth)//2
     if hpos - topline < 0:
       topline = hpos
     elif actualtop + hpos - topline >= height:
@@ -222,7 +288,7 @@ def getdirmenu(scr, title='', prompt='Select a directory'):
     # add the confirm option
     names = ['Select', ''] + names
     # get the response
-    topline, ch = choicemenu(scr, title=title, body=body, err=None,
+    topline, ch = choicemenu(scr, title=title, body=body,
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
     if ch is None:
@@ -258,7 +324,6 @@ gettextfilemenu(scr, title)
 def gettextfilemenu(scr, title='', prompt='Select a text file'):
   # the path starts at the current working directory
   path = Path.cwd()
-  error = None
   body = [[prompt], [f'Path: {path}']]
   topline = 0
   ch = 0
@@ -280,12 +345,10 @@ def gettextfilemenu(scr, title='', prompt='Select a text file'):
     if path.parents:
       names.insert(0, '..')
     # get the response
-    topline, ch = choicemenu(scr, title=title, body=body, err=error,
+    topline, ch = choicemenu(scr, title=title, body=body,
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
     if ch is None: return None, None
-    # reset the error message
-    error = None
     # we selected to go up
     if names[ch] == '..':
       path = path.parent
@@ -310,6 +373,9 @@ def gettextfilemenu(scr, title='', prompt='Select a text file'):
           return contents, names[ch]
       except Exception as e:
         error = str(e).split(':')
+      modalwindow(scr, title=title, curs=2,
+                  body=[[f'Unable to open {names[ch]}'],
+                        ['Press the any key to continue . . . ']], err=error)
 
 '''
 drawsplitpane(scr,
