@@ -131,36 +131,48 @@ def getinputmenu(scr, title='', prompt='Enter input:'):
   itemcolor = curses.color_pair(1)
   val = ''
   height, width = scr.getmaxyx()
-  maxwidth=max(len(title), len(prompt))
-  lshift = (width-maxwidth)//2
   while True:
     scr.erase()
-    scr.insstr(0, (width-len(title))//2, title, titlecolor)
-    scr.insstr(2, lshift, prompt, itemcolor)
-    scr.move(4, lshift)
+    lpos = (width-len(title))//2
+    if lpos < 0:
+      lpos = 0
+    scr.insstr(0, lpos, title, titlecolor)
+    lpos = (width-len(prompt))//2
+    if lpos < 0:
+      lpos = 0
+    scr.insstr(2, lpos, prompt, itemcolor)
     if val:
-      scr.insstr(4, lshift, val, itemcolor)
-      scr.move(4, lshift+len(val))
+      line = 4
+      lpos = (width-len(val))//2
+      if lpos < 0:
+        lpos = 0
+      scr.insstr(4, lpos, val[:width], itemcolor)
+      lpos += len(val)
+      line = 4
+      consumed = 0
+      while lpos >= width:
+        consumed += width
+        line += 1
+        scr.insstr(line, 0, val[consumed:consumed+width], itemcolor)
+        lpos -= width
+      scr.move(line, lpos)
+    else:
+      scr.move(4, width//2)
     curses.curs_set(2)
     scr.refresh()
     while True:
       ch = scr.getch()
       if ch == curses.KEY_RESIZE:
         height, width = scr.getmaxyx()
-        lshift = (width-maxwidth-len(val))//2
-        if lshift < 0:
-          lshift = 0
         break
       if ch in [curses.KEY_ENTER, 10, 13]:
         return val if val else None
       if ch >= 32 and ch <= 126:
         val += chr(ch)
-        lshift = (width-maxwidth-len(val))//2
         break
       if ch in [curses.KEY_BACKSPACE, '\b', 127]:
         if val:
           val = val[:-1]
-          lshift = (width-maxwidth-len(val))//2
           break
 
 '''
@@ -217,7 +229,10 @@ def choicemenu(scr,
     # clear the screen
     scr.erase()
     # add the title
-    scr.insstr(0, (width-len(title))//2, title, titlecolor)
+    lpos = (width-len(title))//2
+    if lpos < 0:
+      lpos = 0
+    scr.insstr(0, lpos, title, titlecolor)
     # track the line number we are printing to
     linenum = 1
     for section in body:
