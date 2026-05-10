@@ -46,7 +46,7 @@ modalwindow(scr, title, body, err, curs, confirm)
   the accepting result of getch is returned from this function
 '''
 def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
-  maxwidth = max(len(title), max(len(s) for s in body))
+  maxwidth = max(len(title), max(len(l) for s in body for l in s))
   if isinstance(err, str):
     maxwidth = max(maxwidth,len(err))
   elif err:
@@ -58,9 +58,9 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
   # get the dimensions
   height, width = scr.getmaxyx()
   # get side buffer
-  lshift = 0
-  if maxwidth < width:
-    lshift = (width-maxwidth)//2
+  lshift = (width-maxwidth)//2
+  if lshift < 0:
+    lshift = 0
   while True:
     # clear the screen
     scr.erase()
@@ -68,7 +68,7 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
     linenum = 0
     # add the title
     if title:
-      scr.insstr(linenum, 0+lshift, title, titlecolor)
+      scr.insstr(linenum, (width-len(title))//2, title, titlecolor)
     # print all lines in a section of the body
     cursorcol = len(title)
     # print an error message if we have one
@@ -80,12 +80,12 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
             if e:
               linenum += 1
               if linenum >= height: break
-              scr.insstr(linenum, 4+lshift, e, errorcolor)
+              scr.insstr(linenum, lshift, e, errorcolor)
               cursorcol = len(e)
         else:
           linenum += 1
           if linenum < height:
-            scr.insstr(linenum, 4+lshift, err, errorcolor)
+            scr.insstr(linenum, lshift, err, errorcolor)
             cursorcol = len(err)
     if body:
       linenum += 1
@@ -95,11 +95,11 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
           linenum += 1
           if line:
             if linenum >= height: break
-            scr.insstr(linenum, 4+lshift, line, itemcolor)
+            scr.insstr(linenum, lshift, line, itemcolor)
             cursorcol = len(line)
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
-      cursorcol += 4 + lshift
+      cursorcol += lshift
       if linenum < height and cursorcol < width:
         scr.move(linenum, cursorcol)
         curses.curs_set(curs)
@@ -112,9 +112,9 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
       if ch == curses.KEY_RESIZE:
         # get new dimensions and redraw
         height, width = scr.getmaxyx()
-        lshift = 0
-        if maxwidth < width:
-          lshift = (width-maxwidth)//2
+        lshift = (width-maxwidth)//2
+        if lshift < 0:
+          lshift = 0
         break
       # accept anything
       if not confirm:
@@ -155,7 +155,7 @@ def choicemenu(scr,
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
   # track width to center text
-  maxwidth = max(len(title), max(len(s) for s in body))
+  maxwidth = max(len(title), max(len(l) for s in body for l in s))
   maxwidth = max(maxwidth, max(len(c) for c in choices))
   # set colors to be used
   titlecolor = curses.color_pair(2) | curses.A_BOLD
@@ -164,15 +164,16 @@ def choicemenu(scr,
   # get the dimensions
   height, width = scr.getmaxyx()
   # get side buffer
-  lshift = 0
-  if maxwidth < width: lshift = (width-maxwidth)//2
+  lshift = (width-maxwidth)//2
+  if lshift < 0:
+    lshift = 0
   # toplines include the title and body, these are before the choices
   choicestart = 2 + len(body) + sum([len(s) for s in body])
   while True:
     # clear the screen
     scr.erase()
     # add the title
-    scr.insstr(0, 0+lshift, title, titlecolor)
+    scr.insstr(0, (width-len(title))//2, title, titlecolor)
     # track the line number we are printing to
     linenum = 1
     for section in body:
@@ -180,7 +181,7 @@ def choicemenu(scr,
       for line in section:
         linenum += 1
         if linenum >= height: break
-        scr.insstr(linenum, 4+lshift, line, itemcolor)
+        scr.insstr(linenum, lshift, line, itemcolor)
       # separate body sections by a newline
       linenum += 1
     # separate body from remainder with another newline
@@ -191,11 +192,11 @@ def choicemenu(scr,
       if linenum >= height: break
       # set the color to active if this is our highlight position
       color = activecolor if i+topline == hpos else itemcolor
-      scr.insstr(linenum, 4+lshift, line, color)
+      scr.insstr(linenum, lshift, line, color)
       linenum += 1
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
-      cursorcol = 4 + lshift + len(choices[hpos])
+      cursorcol = lshift + len(choices[hpos])
       if cursorcol < width:
         scr.move(choicestart + hpos - topline, cursorcol)
         curses.curs_set(curs)
@@ -247,9 +248,9 @@ def choicemenu(scr,
       elif ch == curses.KEY_RESIZE:
         # get new dimensions
         height, width = scr.getmaxyx()
-        lshift = 0
-        if maxwidth < width:
-          lshift = (width-maxwidth)//2
+        lshift = (width-maxwidth)//2
+        if lshift < 0:
+          lshift = 0
     if hpos - topline < 0:
       topline = hpos
     elif choicestart + hpos - topline >= height:

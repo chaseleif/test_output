@@ -81,9 +81,7 @@ class DiffWindow:
     We init curses, get a screen, and set options
     Returns self for use with the listdiff() function
   '''
-  def __enter__(self, scr=None):
-    self.stdscr = scr
-    self.ownscr = scr is None
+  def __enter__(self):
     return self.initscr()
 
   '''
@@ -263,6 +261,9 @@ class DiffWindow:
           lpos[0] = minpos[0]
         if rpos[0] < minpos[0]:
           rpos[0] = minpos[0]
+      # take a question mark for help, call self.commands
+      elif ch == 63:
+        self.commands(title='DiffWindow - Commands')
       # toggle line match highlight with [dDhH] (for diff/highlight)
       elif ch in [68, 72, 100, 104]:
         highlight = not highlight
