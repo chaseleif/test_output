@@ -2,7 +2,7 @@
 
 import curses, os, re, sys
 sys.dont_write_bytecode = True
-from cursemenu import showmenu, gettextfilemenu, drawsplitpane
+from cursemenu import choicemenu, gettextfilemenu, drawsplitpane
 
 '''
     DiffWindow - a Python script to view difference between 2 text files
@@ -367,7 +367,7 @@ class DiffWindow:
                   '     Toggle line-number printing:  n, N',
                   '      Reset pane separator shift:  =']]
     choices = ['Press the any key to return to the main menu . . . ']
-    showmenu(self.stdscr, title=title, body=controls,
+    choicemenu(self.stdscr, title=title, body=controls,
               choices=choices, infobox=True, curs=2)
 
   '''
@@ -400,7 +400,7 @@ class DiffWindow:
     # while quit is not chosen
     while True:
       # get a choice
-      _, ch = showmenu(self.stdscr, title=title, body=body,
+      _, ch = choicemenu(self.stdscr, title=title, body=body,
                         err=error, choices=choices, hpos=ch)
       # allow to quit on escape, q, or Q:
       if ch is None: break
