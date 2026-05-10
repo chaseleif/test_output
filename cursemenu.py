@@ -124,6 +124,46 @@ def modalwindow(scr, title='', body=[[]], err=[], curs=0, confirm=[]):
         return ch
 
 '''
+getinputmenu(scr)
+'''
+def getinputmenu(scr, title='', prompt='Enter input:'):
+  titlecolor = curses.color_pair(2) | curses.A_BOLD
+  itemcolor = curses.color_pair(1)
+  val = ''
+  height, width = scr.getmaxyx()
+  maxwidth=max(len(title), len(prompt))
+  lshift = (width-maxwidth)//2
+  while True:
+    scr.erase()
+    scr.insstr(0, (width-len(title))//2, title, titlecolor)
+    scr.insstr(2, lshift, prompt, itemcolor)
+    scr.move(4, lshift)
+    if val:
+      scr.insstr(4, lshift, val, itemcolor)
+      scr.move(4, lshift+len(val))
+    curses.curs_set(2)
+    scr.refresh()
+    while True:
+      ch = scr.getch()
+      if ch == curses.KEY_RESIZE:
+        height, width = scr.getmaxyx()
+        lshift = (width-maxwidth-len(val))//2
+        if lshift < 0:
+          lshift = 0
+        break
+      if ch in [curses.KEY_ENTER, 10, 13]:
+        return val if val else None
+      if ch >= 32 and ch <= 126:
+        val += chr(ch)
+        lshift = (width-maxwidth-len(val))//2
+        break
+      if ch in [curses.KEY_BACKSPACE, '\b', 127]:
+        if val:
+          val = val[:-1]
+          lshift = (width-maxwidth-len(val))//2
+          break
+
+'''
 choicemenu(scr, title, body, choices, infobox, curs, hpos)
 
   This method is used to print a text menu using the screen scr
@@ -155,7 +195,11 @@ def choicemenu(scr,
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
   # track width to center text
-  maxwidth = max(len(title), max(len(l) for s in body for l in s))
+  try:
+    maxwidth = max(len(title), max(len(l) for s in body for l in s))
+  # nothing in the body
+  except ValueError:
+    maxwidth = len(title)
   maxwidth = max(maxwidth, max(len(c) for c in choices))
   # set colors to be used
   titlecolor = curses.color_pair(2) | curses.A_BOLD
@@ -352,7 +396,7 @@ def getfilemenu(scr, title='', prompt='Select a file', perm=os.R_OK):
     topline, ch = choicemenu(scr, title=title, body=body,
                             choices=names, topline=topline, hpos=ch)
     # allow to return without opening a file:
-    if ch is None: return None, None
+    if ch is None: return None
     # we selected to go up
     if names[ch] == '..':
       path = path.parent
