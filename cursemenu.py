@@ -201,6 +201,7 @@ def getinputmenu(scr, title='', prompt='Enter input:', val='',
   # cursor offset from end of string (number of columns to move left)
   cursleft = 0
   try:
+    curses.curs_set(2)
     while True:
       scr.erase()
       lpos = (width-len(title))//2
@@ -269,7 +270,6 @@ def getinputmenu(scr, title='', prompt='Enter input:', val='',
         if 4 >= height:
           break
         scr.move(4, width//2)
-      curses.curs_set(2)
       scr.refresh()
       ret = False
       while True:
@@ -411,6 +411,8 @@ def getinputmenu(scr, title='', prompt='Enter input:', val='',
         # we took at least 1 char, break to print it
         break
   finally:
+    # hide the cursor
+    curses.curs_set(0)
     # restore the SIGTSTP signal handler, if there was one
     signal.signal(signal.SIGTSTP, prevSIGTSTP)
 getinputmenu.timeout=10
