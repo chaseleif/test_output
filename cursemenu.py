@@ -446,18 +446,17 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
               body=[], choices=[], disabled=[], chosen=[], epilogue=[],
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
-  havechoices = 0
-  while havechoices in disabled:
-    havechoices += 1
-  havechoices += len([choice for choice in choices if not choice])
-  havechoices = havechoices < len(choices)
+  havechoice = 0
+  while havechoice in disabled:
+    havechoice += 1
+  havechoice += len([choice for choice in choices if not choice])
+  havechoice = havechoice < len(choices)
   # track width to center text
-  try:
-    maxwidth =  max(len(l) for l in body)
-  # nothing in the body
-  except ValueError:
-    maxwidth = 0
-  maxwidth = max(maxwidth, max(len(c) for c in choices))
+  maxwidth = 0
+  if body:
+    maxwidth =  max(maxwidth,max(len(l) for l in body))
+  if choices:
+    maxwidth = max(maxwidth, max(len(c) for c in choices))
   if multi:
     maxwidth += 2
   # set colors to be used
@@ -503,9 +502,9 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
         linenum += 1
         continue
       # set the color to active if this is our highlight position
-      if havechoices and i+topline == hpos and lshift > 1:
+      if i+topline == hpos and lshift > 1:
         scr.insch(linenum, lshift-2, curses.ACS_DIAMOND, activecolor)
-      color = disabledcolor if i+topline in disabled or not havechoices else \
+      color = disabledcolor if havechoice and i+topline in disabled else \
               activecolor if i+topline == hpos else \
               activecolor if line in chosen else itemcolor
       scr.insstr(linenum, lshift, line[rshift[i+topline]:], color)
@@ -537,7 +536,11 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
       if ch in helpkeys:
         return topline, ch
       # on enter we return our highlighted position
-      if ch in [curses.KEY_ENTER, 10, 13] and hpos not in disabled:
+      if ch in [curses.KEY_ENTER, 10, 13]:
+        if not havechoice:
+          return None, None
+        if hpos in disabled:
+          continue
         # multi-select we return this list on the first choice
         # the first choice should be a variation of 'confirm'
         if multi:
@@ -599,15 +602,15 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
           lshift = 0
         if multi:
           lshift += 2
-    if direction != 0 and havechoices:
-      while hpos in disabled or \
+    if direction != 0:
+      while (havechoice and hpos in disabled) or \
             (hpos>=0 and hpos <= maxhpos and not choices[hpos]):
         hpos += direction
       # if we go OOB move us to the nearest choice
       if hpos == -1 or hpos > maxhpos:
         direction = -direction
         hpos += direction
-        while hpos in disabled or \
+        while (havechoice and hpos in disabled) or \
               (hpos>=0 and hpos <= maxhpos and not choices[hpos]):
           hpos += direction
         #we must be at a choice
@@ -615,6 +618,10 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
       topline = hpos
     elif choicestart + hpos - topline >= height:
       topline = choicestart + hpos - height + 1
+
+def infowindow(scr, title='', body=[], curs=0):
+  disabled = [i for i in range(len(body))]
+  choicemenu(scr, title=title, curs=curs, choices=body, disabled=disabled)
 
 '''
 getdirmenu(scr, title)
