@@ -478,7 +478,7 @@ class DiffWindow:
             except Exception as e:
               modalwindow(self.stdscr, title=title, curs=2,
                           body=[f'Unable to open {lhs}'],
-                          err=str(e).split(':'))
+                          err=[m.strip() for m in re.split(r'[:\n]+',str(e))])
               lhs = None
               self.ltitle = 'left'
               choices[legend.index('lhs')] = \
@@ -490,7 +490,7 @@ class DiffWindow:
             except Exception as e:
               modalwindow(self.stdscr, title=title, curs=2,
                           body=[f'Unable to open {rhs}'],
-                          err=str(e).split(':'))
+                          err=[m.strip() for m in re.split(r'[:\n]+',str(e))])
               rhs = None
               self.ltitle = 'right'
               choices[legend.index('rhs')] = \
