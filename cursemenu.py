@@ -442,8 +442,8 @@ choicemenu(scr, title, body, choices, infobox, curs, hpos)
     1 is (possibly) an underscore/line
     2 is (possibly) a block
 '''
-def choicemenu(scr, title='', multi=False,
-              body=[], choices=[], disabled=[], chosen=[],
+def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
+              body=[], choices=[], disabled=[], chosen=[], epilogue=[],
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
   havechoices = 0
@@ -510,6 +510,14 @@ def choicemenu(scr, title='', multi=False,
               activecolor if line in chosen else itemcolor
       scr.insstr(linenum, lshift, line[rshift[i+topline]:], color)
       linenum += 1
+    if helpkeys and helpstr:
+      linenum += 1
+      if linenum < height:
+        line = 'Help: {' + \
+                ', '.join([chr(k) if isinstance(k,int) else f'{k}' \
+                            for k in helpkeys]) + \
+                '}'
+        scr.insstr(linenum, lshift, line, itemcolor)
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
       cursorcol = lshift + len(choices[hpos])
@@ -525,6 +533,9 @@ def choicemenu(scr, title='', multi=False,
       # get our response, reset the cursor and process the response
       ch = scr.getch()
       curses.curs_set(0)
+      # if the key is in helpkeys, return it
+      if ch in helpkeys:
+        return topline, ch
       # on enter we return our highlighted position
       if ch in [curses.KEY_ENTER, 10, 13] and hpos not in disabled:
         # multi-select we return this list on the first choice
