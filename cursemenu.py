@@ -538,7 +538,7 @@ def choicemenu(scr, title='', multi=False,
       curses.curs_set(0)
       # if the key is in helpkeys, return it
       if ch in helpkeys:
-        return topline, ch
+        return hpos, ch
       # on enter we return our highlighted position
       if ch in [curses.KEY_ENTER, 10, 13]:
         if not havechoice:
@@ -557,7 +557,7 @@ def choicemenu(scr, title='', multi=False,
           break
         return topline, hpos
       # allow to return without making a selection with escape or q
-      if ch in [27, 81, 113]: return None, None
+      if ch in [27, 81, 113]: return hpos, None
       # the direction we are moving (up=-1, neither=0, down=1)
       direction = 0
       # go to the top
