@@ -442,8 +442,9 @@ choicemenu(scr, title, body, choices, infobox, curs, hpos)
     1 is (possibly) an underscore/line
     2 is (possibly) a block
 '''
-def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
-              body=[], choices=[], disabled=[], chosen=[], epilogue=[],
+def choicemenu(scr, title='', multi=False,
+              helpkeys=[], helpstr='Help: {@keys@}',
+              body=[], choices=[], disabled=[], chosen=[],
               curs=0, topline=0, hpos=0):
   if hpos < topline: hpos = topline
   havechoice = 0
@@ -457,6 +458,13 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
     maxwidth =  max(maxwidth,max(len(l) for l in body))
   if choices:
     maxwidth = max(maxwidth, max(len(c) for c in choices))
+  if helpkeys and helpstr:
+    helpstr = helpstr.replace('@keys@',
+                              ', '.join([chr(k) if isinstance(k,int) else \
+                                      f'{k}' for k in helpkeys]))
+    maxwidth = max(maxwidth, len(helpstr))
+  else:
+    helpstr = ''
   if multi:
     maxwidth += 2
   # set colors to be used
@@ -509,14 +517,10 @@ def choicemenu(scr, title='', multi=False, helpkeys=[], helpstr=True,
               activecolor if line in chosen else itemcolor
       scr.insstr(linenum, lshift, line[rshift[i+topline]:], color)
       linenum += 1
-    if helpkeys and helpstr:
+    if helpstr:
       linenum += 1
       if linenum < height:
-        line = 'Help: {' + \
-                ', '.join([chr(k) if isinstance(k,int) else f'{k}' \
-                            for k in helpkeys]) + \
-                '}'
-        scr.insstr(linenum, lshift, line, itemcolor)
+        scr.insstr(linenum, lshift, helpstr, itemcolor)
     # set the cursor according to the argument and refresh the screen
     if curs != 0:
       cursorcol = lshift + len(choices[hpos])
