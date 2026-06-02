@@ -1,130 +1,80 @@
 #! /usr/bin/env python3
 
 '''
-    TestOutput - a Python script to test a program
-    Copyright (C) 2023  Chase Phelps
+  ``testoutput`` command
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+  Given a directory with test cases (casedir), run each case through a program
+  and optionally compare output against expected files in expdir
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+  Input handling:
+  - Piped to stdin or
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-'''
+  - Passed as an argument where ``@case@`` is replaced with the case filename
 
-'''
-  testOutput.py
-  given a directory with test cases, the casedir,
-    we give each test case to the program as input
-  input is either piped in via stdin,
-    or the input filename is given to the program where @in is an argument
-  expected output is optional, and lives in expdir,
-    we verify the actual output matches the expected output
-  if there is no expected output, we display the input with the actual output
-  if there is expected output we only do this if it differs,
-    otherwise we print a message that the output matches
-  we handle and give notice of any cases that ended in error/exception
+  Behavior:
+  - If there is an expected output file,
+  compare actual output to expected and display differences when they differ
 
-    Example Makefile usage where this script is located in ../
+  - If no expected output exists, display input and actual output
+  - Report cases that end with error or exception
+  - When output matches expected output report success
 
-$ tail -n7 Makefile | expand -t 2
-.PHONY: test
-test: obj/$(BIN) ../testOutput.py ../diffwin.py ../cursemenu.py
-  python3 ./test/testOutput.py \
-    --casedir test/cases --caseext .mC \
-    --expdir test/exp --expdir .exp \
-    --program $<
-    --args arg1 key=val "multi-word arg" --input=@in
+  Example usage with the program: ``./obj/prog``
+    (program expects an input filename as argument)
+
+  ``./obj/prog --input=@case@``
 '''
 
 import argparse, os, re, shlex, sys
-from signal import Signals
-from subprocess import Popen, PIPE
-sys.dont_write_bytecode = True
-from diffwin import DiffWindow
+from typing import Dict, List, Optional
+from .diffwin import DiffWindow
+from .utils import runprocess
 
-'''
-runproc(cmd, filepos, filename)
-  input:
-    cmd:      list, command specified to execute
-    filearg:  if filearg is none we pipe the file as stdin
-    filename: the input filename
-  returns:
-    stdout, stderr, returncode
-    stdout and stderr are strings
-    returncode  = 0: normal
-                = 1: error
-                < 0: signal
-'''
-def runproc(cmd, filearg, filename):
-  stdout, stderr, retcode = '', '', 1
-  try:
-    pipein = None
-    # filearg indicates whether the input file was given as an argument
-    if filearg:
-      pipein = None
-    else:
-      with open(filename, 'r') as infile:
-        pipein = infile.read()
-    proc = Popen(cmd, universal_newlines=True,
-                  stdin=(None if filearg else PIPE), stdout=PIPE, stderr=PIPE)
-    stdout, stderr = proc.communicate(input=pipein)
-    retcode = proc.returncode
-  except Exception as e:
-    if stderr:
-      stderr += '\n'
-    stderr += f'runproc: {e}'
-    retcode = 1
-  return stdout, stderr, retcode
+def dotests(cases: Dict[str, Optional[str]], runstr: str) -> Dict[str, str]:
+  '''
+  Execute tests for each cases in ``cases`` and report results
 
-'''
-dotests(cases, runstr)
-  input:
-    cases:   dict, key = case file, value = exp file or None
-    runstr:  shlex.join([program] + args)
-  executes the test for each case in cases
-  displays output if possible
-    (non-normal exit may suppress output)
-  displays comparison if exp file exists and output doesn't match
-  it no exp file displays input and output
-'''
-def dotests(cases, runstr):
+  Args:
+    cases (dict): Mapping of case_file -> expected_file or None
+    runstr (str): Command string, e.g., shlex.join([program] + args)
+
+  Returns:
+    Dict[str, str]: [Error testcases, error strings]
+
+  Runs the program for each test case, capturing output, and
+
+  - If an expected output file exists, compares outputs and displays diff
+
+  - If no expected output exists, displays input and output
+
+  - Tracks non-normal exits to display following the final test case
+  '''
+  title = 'CSTester'
   errortests = {}
-  # if we have '@in' in the runstr we replace that with our input file
-  filearg = runstr.find('@in')
-  # if @in is in the runstr, that is the place for the input argument
-  # if @in is not in the runstr, we pipe the input to the program via stdin
-  # if we don't have @in in our runstr just set filepos to None
+  # if we have '@case@' in the runstr we replace that with our input file
+  filearg = runstr.find('@case@')
+  # if @case@ is in the runstr, that is the place for the input argument
+  # if @case@ is not in the runstr, we pipe the input to the program via stdin
+  # if we don't have @case@ in our runstr just set filepos to None
   if filearg < 0:
     filearg = None
     cmd = shlex.split(runstr)
   else:
-    runstr = re.sub('@in', '\"@in\"', runstr)
+    runstr = re.sub('@case@', '\"@case@\"', runstr)
   # for each mC file . . .
   for inFile in cases:
     # the test name is the filename without an extension
     test = os.path.splitext(os.path.basename(inFile))[0]
     if filearg:
-      cmd = shlex.split(re.sub('@in', inFile, runstr))
-    stdout, stderr, retcode = runproc(cmd, filearg, inFile)
+      cmd = shlex.split(re.sub('@case@', inFile, runstr))
+    stdout, stderr, retcode = runprocess(cmd, filearg, inFile)
     # bad return codes
     if retcode != 0:
       if stderr.strip():
         print(stderr.rstrip())
       if stdout.strip():
         print(stdout.rstrip())
-      if retcode > 0:
-        print(f'^^ {test} terminated with exception')
-        errortests[test] = 'exception'
-      else:
-        print(f'^^ {test} signal {Signals(-retcode).name}')
-        errortests[test] = f'signal {Signals(-retcode).name}'
+      errortests[test] = stderr.split('\n')[-1]
       continue
     # if output is empty then treat this as an error
     if not stdout.strip() and not stderr.strip():
@@ -140,8 +90,11 @@ def dotests(cases, runstr):
                             if line.strip() != '']
       rhs += [line.rstrip() for line in stdout.split('\n') \
                             if line.strip() != '']
-      with DiffWindow(f'Test {test} input', 'Actual output') as win:
-        win.showdiff(lhs, rhs)
+
+      with DiffWindow() as win:
+        win.scr.diffwindow((title,
+                            f'Test {test} input', lhs,
+                            'Actual output', rhs))
       continue
     # we have an expected output file
     out = [line.rstrip() for line in stderr.split('\n') \
@@ -162,11 +115,30 @@ def dotests(cases, runstr):
     if matches == True:
       print(f'Test {test} output matches expected output\n')
       continue
-    with DiffWindow(f'Test {test} output', 'Expected output') as win:
-      win.showdiff(out, exp)
+    with DiffWindow() as win:
+      win.scr.diffwindow((title,
+                          f'Test {test} output', out,
+                          'Expected output', exp))
   return errortests
 
-if __name__ == '__main__':
+def testoutput_main() -> None:
+  '''
+  Driver method for dotests
+
+  Uses ``argparse`` to parse arguments, then runs dotests
+
+  Args:
+    casedir (str): Directory containing test case files
+    caseext (str, Optional): File extension of case files
+    expdir (str, Optional): Directory containing expected output
+    expext (str, Optional): File extension of exp files
+    program (str): Path of program to test
+
+  The remainder of arguments are passed to the program
+
+  - If ``@case@`` is given, it is replaced with the casefile path
+  - Otherwise the casefile is read and piped to the program's ``stdin``
+  '''
   parser = argparse.ArgumentParser( description=sys.argv[0] + \
                                       ' - a Python script to test a program',
                                     prog=sys.argv[0])
@@ -181,7 +153,7 @@ if __name__ == '__main__':
   parser.add_argument('--program', metavar='<program>', required=True,
                       help='Path to program to test')
   parser.add_argument('--args', nargs=argparse.REMAINDER,
-                help='Program arguments, specify input filenames with @in')
+                help='Program arguments, specify input filenames with @case@')
 
   args = vars(parser.parse_args())
   program = args['program']
@@ -235,3 +207,6 @@ if __name__ == '__main__':
     for test, result in errortests.items():
       print(f'{test} terminated with {result}')
     sys.exit(1)
+
+if __name__ == '__main__':
+  testoutput_main()

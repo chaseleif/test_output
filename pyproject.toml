@@ -1,0 +1,38 @@
+[build-system]
+requires = ['setuptools>=42', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'CSTester'
+version = '2.0.0-alpha'
+dependencies = [
+  'PyYAML>=5.4'
+]
+requires-python = '>=3.9'
+authors = [
+  { name = 'Chase Phelps', email = 'admin@chaseleif.tech' }
+]
+maintainers = [
+  { name = 'Chase Phelps', email = 'admin@chaseleif.tech' }
+]
+description = 'Computer Science programming submission testing tool'
+readme = 'README.rst'
+license-files = [ 'LICENSE' ]
+keywords = ['testing', 'education', 'cstester']
+classifiers = [
+  'Environment :: Console :: Curses',
+  'Intended Audience :: Education',
+  'Operating System :: OS Independent',
+  'Topic :: Education :: Testing'
+]
+
+[project.urls]
+Homepage = 'https://github.com/chaseleif/test_output'
+Documentation = 'https://chaseleif.tech/test_output'
+Repository = 'https://github.com/chaseleif/test_output.git'
+Issues = 'https://github.com/chaseleif/test_output/issues'
+
+[project.scripts]
+cstester = 'cstester.__main__:main'
+diffwin = 'cstester.__main__:diff'
+testoutput = 'cstester.__main__:testoutput'

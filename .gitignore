@@ -1,0 +1,8 @@
+**.yaml
+**__pycache__/
+**.zip
+**venv/
+**.swp
+**CSTester.egg-info/
+dist/
+**build/

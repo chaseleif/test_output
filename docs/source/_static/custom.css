@@ -1,0 +1,266 @@
+:root{
+  --normalesgruen: #008A00;
+  --schwarz: #000000;
+  --dunkelesgruen: #103010;
+  --kleinesgruen: #A1E6BA;
+  --hellesgruen: #0EE30E;
+  --dunklesgrau: #161C1A;
+  --hellesgrau: #9EB5AC;
+  --dunklesrot: #A30707;
+  --normalesblau: #4267A3;
+  --blaugruen: #79C1C9;
+  --hellesblau: #8CB7F0;
+}
+
+/* overriding pygments.css */
+td.linenos .special, span.linenos.special {
+  color: var(--normalesgruen) !important;
+  background-color: var(--schwarz) !important;
+  padding-left: 5px;
+  padding-right: 5px;
+  font-family: monospace, "Courier New", monospace;
+}
+
+span.linenos {
+  color: var(--normalesgruen) !important;
+  background-color: var(--schwarz) !important;
+  font-family: monospace, "Courier New", monospace;
+}
+
+td.linenos .normal {
+  color: var(--normalesgruen) !important;
+  background-color: var(--schwarz) !important;
+  font-family: monospace, "Courier New", monospace;
+}
+
+.highlight .g, .highlight .l, .highlight .n, .highlight .x, .highlight .ges,
+.highlight .ld, .highlight .nc, .highlight .no, .highlight .nf, .highlight .nn,
+.highlight .nx, .highlight .py, .highlight .nv, .highlight .fm, .highlight .vc,
+.highlight .vg, .highlight.vi, .highlight .vm {
+  color: var(--normalesgruen) !important;
+}
+
+.highlight .ge {
+  color: var(--normalesgruen) !important;
+  font-style: italic;
+}
+
+.highlight .p, .highlight .gs, .highlight .pm
+{
+  color: var(--normalesgruen) !important;
+  font-weight: bold;
+}
+
+.highlight .m, .highlight .mb, .highlight .mf, .highlight .mh, .highlight .mi,
+.highlight .mo, .highlight .il {
+  color: var(--normalesblau) !important;
+}
+
+.highlight .s, .highlight .sa, .highlight .sb, .highlight .sc, .highlight .dl,
+.highlight .s2, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx,
+.highlight .sr, .highlight .s1, .highlight .ss {
+  color: var(--hellesblau) !important;
+}
+
+.highlight .bp {
+  color: var(--blaugruen) !important;
+}
+
+.highlight .cp {
+  color: var(--kleinesgruen) !important;
+}
+
+.highlight .c, .highlight .ch, .highlight .cm, .highlight .cpf,
+.highlight .c1, .highlight .cs, .highlight .sd {
+  color: var(--kleinesgruen) !important;
+  font-style: italic;
+}
+
+/* overriding alabaster.css */
+
+p.caption {
+  color: var(--normalesgruen) !important;
+  background-color: var(--schwarz) !important;
+  font-family: monospace, "Courier New", monospace;
+  font-size: inherit;
+}
+
+body {
+  color: var(--normalesgruen) !important;
+  background-color: var(--schwarz) !important;
+  font-family: monospace, "Courier New", monospace;
+  font-size: 17px;
+  margin: 0;
+  padding: 0;
+}
+
+hr {
+  border: 1px solid var(--hellesgrau);
+}
+
+div.body {
+  background-color: var(--schwarz) !important;
+  color: var(--normalesgruen) !important;
+  padding: 0 30px 0 30px;
+}
+
+div.footer {
+  width: 940px;
+  margin: 20px auto 30px auto;
+  font-size: 14px;
+  color: var(--normalesgruen) !important;
+  text-align: right;
+}
+
+div.footer a {
+  color: var(--hellesgrau) !important;
+}
+
+div.sphinxsidebar a {
+  color: var(--normalesgruen) !important;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--dunklesgrau);
+}
+
+div.sphinxsidebar a:hover {
+  border-bottom: 1px solid var(--hellesgrau);
+}
+
+div.sphinxsidebar h4 {
+  font-family: monospace, "Courier New", monospace;
+  color: var(--normalesgruen) !important;
+  font-size: 24px;
+  font-weight: normal;
+  margin: 0 0 5px 0;
+  padding: 0;
+}
+
+div.sphinxsidebar h3 a {
+  color: var(--hellesgruen) !important;
+}
+
+div.sphinxsidebar p.logo a,
+div.sphinxsidebar h3 a,
+div.sphinxsidebar p.logo a:hover,
+div.sphinxsidebar h3 a:hover {
+  color: var(--hellesgruen) !important;
+  border: var(--hellesgrau) !important;
+}
+
+div.sphinxsidebar p {
+  color: var(--hellesgruen) !important;
+  margin: 10px 0;
+}
+
+div.sphinxsidebar ul {
+  margin: 10px 0;
+  padding 0;
+  color: var(--hellesgrau) !important;
+}
+
+div.sphinxsidebar input {
+  border: 1px solid var(--hellesgruen);
+  font-family: monospace, "Courier New", monospace;
+  font-size: 1em;
+}
+
+div.sphinxsidebar hr {
+  border: none;
+  height: 1px;
+  color: var(--hellesgruen) !important;
+  background: var(--dunklesgrau) !important;
+  text-align: left;
+  margin-left: 0;
+  width: 50%;
+}
+
+a {
+  color: var(--hellesgruen) !important;
+  text-decoration: underline;
+}
+
+a:hover {
+  color: var(--hellesgruen) !important;
+  text-decoration: underline;
+}
+
+div.body h1, div.body h2, div.body h3, div.body h4, div.body h5, div.body h6 {
+  font-family: monospace, "Courier New", monospace;
+  font-weight: normal;
+  margin: 30px 0px 10px 0px;
+  padding: 0;
+}
+
+a.headerlink {
+  color: var(--hellesgruen) !important;
+  background: var(--schwarz) !important;
+}
+
+a.headerlink:hover {
+  color: var(--hellesgruen) !important;
+  background: var(--dunklesgrau) !important;
+}
+
+div.admonition {
+  margin: 20px 0px;
+  padding: 10px 30px;
+  background-color: var(--schwarz) !important;
+  border: var(--hellesgrau) !important;
+}
+
+div.admonition tt.xref, div.admonition code.xref, div.admonition a tt {
+  background-color: var(--dunklesgrau) !important;
+  border-bottom: 1px solid var(--hellesgrau) !important;
+}
+
+div.admonition p.admonition-title {
+  font-family: monospace, "Courier New", monospace;
+  font-weight: normal;
+  font-size: 24px;
+  margin: 0 0 10px 0;
+  padding: 0;
+  line-height: 1;
+}
+
+dt:target, .highlight {
+  background: var(--dunklesgrau) !important;
+}
+
+div.warning, div.caution, div.attention, div.important, div.note, div.tip,
+div.hint, div.seealso, div.topic {
+  background-color: var(--schwarz) !important;
+  border: 1px solid var(--hellesgrau) !important;
+}
+
+div.danger, div.error {
+  background-color: var(--schwarz) !important;
+  border: 1px solid var(--hellesgrau) !important;
+  -moz-box-shadow: 2px 2px 4px var(--dunklesgrau) !important;
+  -webkit-box-shadow: 2px 2px 4px var(--dunklesgrau) !important;
+  box-shadow: 2px 2px 4px var(--dunklesgrau) !important;
+}
+
+pre, tt, code {
+  font-family: monospace, "Courier New", monospace;
+  font-size: 0.9em;
+  color: var(--hellesgrau) !important;
+  background-color: var(--dunklesgrau) !important;
+}
+
+.hll {
+  background-color: var(--dunklesgrau) !important;
+  margin: 0 -12px;
+  padding: 0 12px;
+  display: block;
+}
+
+table.footnote {
+  margin: 15px 0;
+  width: 100%;
+  border: 1px solid var(--hellesgrau) !important;
+  background: var(--dunklesgrau) !important;
+  color: var(--hellesgruen) !important;
+  font-family: monospace, "Courier New", monospace;
+  font-size: 0.9em;
+}
+
