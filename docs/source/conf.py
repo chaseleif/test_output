@@ -72,7 +72,7 @@ html_theme = 'alabaster'
 html_theme_options = {
   'description': 'Computer Science programming submission testing tool',
   'github_user': 'chaseleif',
-  'github_repo': 'test_output',
+  'github_repo': 'cstester',
   'github_button': True,
   'show_powered_by': True,
 }

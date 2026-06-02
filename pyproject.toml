@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'CSTester'
-version = '2.0.0-alpha'
+version = '2.0.0'
 dependencies = [
   'PyYAML>=5.4'
 ]
@@ -27,10 +27,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = 'https://github.com/chaseleif/test_output'
-Documentation = 'https://chaseleif.tech/test_output'
-Repository = 'https://github.com/chaseleif/test_output.git'
-Issues = 'https://github.com/chaseleif/test_output/issues'
+Homepage = 'https://github.com/chaseleif/cstester'
+Documentation = 'https://chaseleif.tech/cstester'
+Repository = 'https://github.com/chaseleif/cstester.git'
+Issues = 'https://github.com/chaseleif/cstester/issues'
 
 [project.scripts]
 cstester = 'cstester.__main__:main'
