@@ -979,7 +979,7 @@ class CursesScreen:
       names = [name for name in names if \
                 (name.is_file() and os.access(name, perm)) or \
                 (name.is_dir() and os.access(name, os.X_OK))]
-      # remove files that don't match the filere
+      # keep only directories (not file) and files which match the filere
       names = [name for name in names if not name.is_file() or \
                 match.match(str(name))]
       # squash to strings and reorder

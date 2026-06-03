@@ -185,14 +185,18 @@ class ConfigManager:
       return
     try:
       self.conf = CSTesterConfig.from_yaml(filename)
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=[f'Configuration loaded from \"{filename}\"'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=[f'Configuration loaded from \"{filename}\"'],
+      )
     except Exception as e:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=[f'Unable to load from \"{filename}\"'],
-                      err=[m.strip() for m in re.split(r'[:\n]+',str(e))])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=[f'Unable to load from \"{filename}\"'],
+        err=[m.strip() for m in re.split(r'[:\n]+',str(e))],
+      )
 
   def save(self) -> None:
     '''
@@ -209,27 +213,35 @@ class ConfigManager:
       filename = ''.join(filename) + '.yaml'
     conf = self.conf.to_yaml()
     if os.path.isfile(filename):
-      _, _, c = self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                                title=title,
-                                err=[f'File \"{filename}\" already exists'],
-                                footer='Overwrite file? [y/N] ')
+      _, _, c = self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        err=[f'File \"{filename}\" already exists'],
+        footer='Overwrite file? [y/N] ',
+      )
       # if c is not Y or y
       if c not in ['Y','y']:
-        self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                        title=title,
-                        err=[f'Save aborted: not overwriting \"{filename}\"'])
+        self.scr.window(
+          WinOpt.SHOWCURS|WinOpt.RETURNANY,
+          title=title,
+          err=[f'Save aborted: not overwriting \"{filename}\"'],
+        )
         return
     try:
       with open(filename, 'w') as configfile:
         configfile.write(conf)
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=[f'Configuration saved to \"{filename}\"'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=[f'Configuration saved to \"{filename}\"'],
+      )
     except Exception as e:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=[f'Save failure: unable to write \"{filename}\"'],
-                      err=[m.strip() for m in re.split(r'[:\n]+',str(e))])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=[f'Save failure: unable to write \"{filename}\"'],
+        err=[m.strip() for m in re.split(r'[:\n]+',str(e))],
+      )
 
   def verifiedregex(self, val: VarVal) -> VarVal:
     '''
@@ -243,10 +255,12 @@ class ConfigManager:
       Optional[str]: Verified regex string or None
     '''
     def badregex(e: str) -> None:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title='Regex compile verification',
-                      body=['Exception during re.compile'],
-                      err=[m.strip() for m in re.split(r'[:\n]+',e)])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title='Regex compile verification',
+        body=['Exception during re.compile'],
+        err=[m.strip() for m in re.split(r'[:\n]+',e)],
+      )
     # reject empty string as well as None for regexes
     # when VarVal is a tuple, index 0 is the key and index 1 is the value
     # this allows to use rhs when lhs, i.e., if (regex) then (value)
@@ -279,14 +293,16 @@ class ConfigManager:
     val = collapsenumrange(val)
     if val:
       return val
-    self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                    title='Number-range list verification',
-                    err=['Number-range lists can be:',
-                          '- a single value',
-                          '- a comma-seperated list of values',
-                          'Each value can be:',
-                          '- single number',
-                          '- valid range, e.g., 2-5'])
+    self.scr.window(
+      WinOpt.SHOWCURS|WinOpt.RETURNANY,
+      title='Number-range list verification',
+      err=['Number-range lists can be:',
+            '- a single value',
+            '- a comma-seperated list of values',
+            'Each value can be:',
+            '- single number',
+            '- valid range, e.g., 2-5'],
+    )
 
   def verifiedcommand(self, cmd: Optional[str]) -> Optional[str]:
     '''
@@ -307,11 +323,13 @@ class ConfigManager:
     # executable file
     if os.path.isfile(cmd[0]) and os.access(cmd[0], os.R_OK|os.X_OK):
       return shlex.join(cmd)
-    self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                    title='Command verification',
-                    err=[f'Could not verify command \"{shlex.join(cmd)}\"',
-                          'Checked shell built-ins',
-                          'Checked if it is an executable file'])
+    self.scr.window(
+      WinOpt.SHOWCURS|WinOpt.RETURNANY,
+      title='Command verification',
+      err=[f'Could not verify command \"{shlex.join(cmd)}\"',
+            'Checked shell built-ins',
+            'Checked if it is an executable file'],
+    )
     return None
 
   def verifyval(self, key: str, val: VarVal) -> VarVal:
@@ -375,11 +393,14 @@ class ConfigManager:
     prompt = self.prompts[key][1]
     top, hpos = 0, 0
     while True:
-      top, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL,
-                                      title=title, body=body,
-                                      choices=['Finished', 'Add new',''] + \
-                                      getattr(self.conf, key),
-                                      top=top, hpos=hpos)
+      top, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL,
+        title=title,
+        body=body,
+        choices=['Finished', 'Add new',''] + getattr(self.conf, key),
+        top=top,
+        hpos=hpos,
+      )
       if c == 'KEY_DC':
         if hpos > 2:
           del getattr(self.conf, key)[hpos-3]
@@ -419,12 +440,15 @@ class ConfigManager:
     top, hpos = 0, 0
     keyprompt = self.prompts[key][1]
     while True:
-      top, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL,
-                                      title=title, body=keybody,
-                                      choices=['Finished', 'Add new',''] + \
-                                              [f'\"{k}\" : \"{v}\"' for k,v in
-                                              getattr(self.conf, key).items()],
-                                      top=top, hpos=hpos)
+      top, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL,
+        title=title,
+        body=keybody,
+        choices=['Finished', 'Add new',''] + \
+          [f'\"{k}\" : \"{v}\"' for k,v in getattr(self.conf, key).items()],
+        top=top,
+        hpos=hpos,
+      )
       if c == 'KEY_DC':
         if hpos > 2:
           k = list(getattr(self.conf, key).keys())[hpos-3]

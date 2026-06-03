@@ -84,17 +84,19 @@ class CSTester:
     allgroups = ','.join([str(group) for group in allgroups])
     allgroups = self.cfg.verifiednumrange(allgroups)
     if not extracted and allgroups == self.cfg.allgroups:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                          title=title,
-                          body=[f'Found {count} groups'],
-                          err=['Group list already up-to-date'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=[f'Found {count} groups'],
+        err=['Group list already up-to-date'],
+      )
     else:
       self.cfg.set('allgroups', allgroups)
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                          title=title,
-                          body=['Group list updated',
-                                '',
-                                f'Found {count} groups'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=['Group list updated', '', f'Found {count} groups'],
+      )
 
   def getgrouplists(self) -> Tuple[List[str], List[str], List[str]]:
     '''
@@ -137,17 +139,20 @@ class CSTester:
           if any(p.match(file) for p in patterns):
             os.unlink(os.path.join(root, file))
             count += 1
-    self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                        title='Make clean',
-                        body=[f'Deleted {count} files'])
+    self.scr.window(
+      WinOpt.SHOWCURS|WinOpt.RETURNANY,
+      title='Make clean', body=[f'Deleted {count} files'],
+    )
 
   def help_runtests(self, title: str) -> None:
     '''
     Display an informational window describing the runtests view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.runtests).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.runtests).strip('\n').split('\n'),
+    )
 
   def runtests(self) -> None:
     '''
@@ -210,11 +215,16 @@ class CSTester:
         else:
           group -= 1
         continue
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
-                                   title=title, disabled=getdisabled(),
-                                   returnkeys=exitkeys, helpstr=helpstr,
-                                   body=[f'Group {groups[group]}', ''],
-                                   choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
+        title=title,
+        disabled=getdisabled(),
+        returnkeys=exitkeys,
+        helpstr=helpstr,
+        body=[f'Group {groups[group]}', ''],
+        choices=choices,
+        hpos=hpos,
+      )
       if c == 'KEY_DC':
         if hpos == keys.index('modsub'):
           choices[hpos] = f'{values[hpos]}: (unset)'
@@ -236,11 +246,12 @@ class CSTester:
           group -= 1
         continue
       if keys[hpos] == 'modsub':
-        _, _, c = self.scr.window(WinOpt.RETURNMUL,
-                                  title=title,
-                                  body=['Select subset of cases to use:'],
-                                  choices=['Confirm selection',''] + \
-                                          list(cases.keys()))
+        _, _, c = self.scr.window(
+          WinOpt.RETURNMUL,
+          title=title,
+          body=['Select subset of cases to use:'],
+          choices=['Confirm selection',''] + list(cases.keys()),
+        )
         if c in CursesScreen.cancelkeys:
           pass
         else:
@@ -293,8 +304,11 @@ class CSTester:
           self.scr.diffwindow((title, ltitle, lhs, rtitle, rhs))
       os.chdir(pwd)
       if errors:
-        self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                        title=f'{title}: Group {groups[group]}', choices=errors)
+        self.scr.window(
+          WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+          title=f'{title}: Group {groups[group]}',
+          choices=errors,
+        )
 
   def runsearch(self) -> None:
     '''
@@ -327,7 +341,7 @@ class CSTester:
           with open(file, 'r') as infile:
             for linenum, line in enumerate(infile.readlines()):
               line = line.rstrip()
-              if any(p.match(line) for p in strpatterns):
+              if any(p.search(line) for p in strpatterns):
                 matches[linenum] = line
                 nmatches += 1
           if matches:
@@ -343,8 +357,12 @@ class CSTester:
     self.scr.clearkeys()
     if body:
       body = ['Matches found:',''] + body
-      self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                      title=title, choices=body, footer=f'{nmatches} matches')
+      self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+        title=title,
+        choices=body,
+        footer=f'{nmatches} matches',
+      )
 
   def runpreparation(self) -> None:
     '''
@@ -383,16 +401,22 @@ class CSTester:
             [f'{i}: {cmd}' for i,cmd in enumerate(self.cfg.prepcmds)] + \
             [''] + \
             body
-      self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                      title=title, choices=body, footer='Preparation failures')
+      self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+        title=title,
+        choices=body,
+        footer='Preparation failures',
+      )
 
   def help_lessreadmes(self, title: str) -> None:
     '''
     Display an informational window describing the lessreadmes view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.lessreadmes).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.lessreadmes).strip('\n').split('\n'),
+    )
 
   def lessreadmes(self) -> None:
     '''
@@ -421,20 +445,23 @@ class CSTester:
       groupdir = os.path.join(self.cfg.phasedir, f'group_{groups[group]}')
       readme = os.path.join(groupdir, readmename)
       if not os.path.isfile(readme):
-        _, _, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.USEHELP,
-                                  title=f'{title}: Group {groups[group]}',
-                                  err=[f'Group {groups[group]}: ' + \
-                                        f'missing {readmename}'],
-                                  helpstr=helpstr,
-                                  returnkeys=exitkeys)
+        _, _, c = self.scr.window(
+          WinOpt.RETURNKEY|WinOpt.USEHELP,
+          title=f'{title}: Group {groups[group]}',
+          err=[f'Group {groups[group]}: missing {readmename}'],
+          helpstr=helpstr,
+          returnkeys=exitkeys,
+        )
       else:
         with open(readme, 'r') as infile:
           body = [line.rstrip() for line in infile.readlines()]
-        _, _, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX|WinOpt.USEHELP,
-                                   title=f'{title}: Group {groups[group]}',
-                                   choices=body,
-                                   helpstr=helpstr,
-                                   returnkeys=exitkeys)
+        _, _, c = self.scr.window(
+          WinOpt.RETURNKEY|WinOpt.TEXTBOX|WinOpt.USEHELP,
+          title=f'{title}: Group {groups[group]}',
+          choices=body,
+          helpstr=helpstr,
+          returnkeys=exitkeys,
+        )
       if c in CursesScreen.cancelkeys:
         break
       elif c in ('a', 'A', 'b', 'B'):
@@ -474,9 +501,11 @@ class CSTester:
           zipfile.write(src)
     elif os.path.isfile(hashfile):
       os.unlink(hashfile)
-    self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                    title='Freeze Files',
-                    body=[f'Created hashes for {len(hashes)} files'])
+    self.scr.window(
+      WinOpt.SHOWCURS|WinOpt.RETURNANY,
+      title='Freeze Files',
+      body=[f'Created hashes for {len(hashes)} files'],
+    )
     return len(hashes) > 0
 
   def mkpatches(self) -> None:
@@ -524,22 +553,29 @@ class CSTester:
         patches.append(src.removeprefix(self.cfg.phasedir).lstrip(os.path.sep))
     if patches:
       footer = 'Press enter to continue . . . '
-      self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX|WinOpt.SHOWCURS,
-                      title='Make patches',
-                      body=[f'Made {len(patches)} patches:'],
-                      choices=patches, footer=footer)
+      self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.TEXTBOX|WinOpt.SHOWCURS,
+        title='Make patches',
+        body=[f'Made {len(patches)} patches:'],
+        choices=patches,
+        footer=footer,
+      )
     else:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title='Make patches',
-                      body=['No modified files found'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title='Make patches',
+        body=['No modified files found'],
+      )
 
   def help_phasemenu(self, title: str) -> None:
     '''
     Display an informational window describing the phasemenu view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.phasemenu).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.phasemenu).strip('\n').split('\n'),
+    )
 
   def phasemenu(self) -> None:
     '''
@@ -578,9 +614,13 @@ class CSTester:
                 else opts[o]+f': {self.cfg.get(o)}' for o in opts]
     hpos = 0
     while True:
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
-                                    title=title, disabled=getdisabled(),
-                                    choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
+        title=title,
+        disabled=getdisabled(),
+        choices=choices,
+        hpos=hpos,
+      )
       if c == 'KEY_DC':
         if self.cfg.has(keys[hpos]) and self.cfg.isset(keys[hpos]):
           self.cfg.resetattr(keys[hpos])
@@ -600,19 +640,25 @@ class CSTester:
                                           conf.zipexclude_strs)
         # -1 error, 0 success, 1 nothing done
         if ret == 0:
-          self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                          title=title,
-                          body=['Phasezip extracted successfully'])
+          self.scr.window(
+            WinOpt.SHOWCURS|WinOpt.RETURNANY,
+            title=title,
+            body=['Phasezip extracted successfully'],
+          )
         elif ret < 0:
-          self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                          title=title,
-                          body=['Phasezip not extracted'],
-                          err=[f'Error during extraction'])
+          self.scr.window(
+            WinOpt.SHOWCURS|WinOpt.RETURNANY,
+            title=title,
+            body=['Phasezip not extracted'],
+            err=[f'Error during extraction'],
+          )
         else:
-          self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                          title=title,
-                          body=['Phasezip not extracted'],
-                          err=[f'Extraction aborted'])
+          self.scr.window(
+            WinOpt.SHOWCURS|WinOpt.RETURNANY,
+            title=title,
+            body=['Phasezip not extracted'],
+            err=[f'Extraction aborted'],
+          )
         self.refreshallgroups(title=title, extracted=True)
       if self.cfg.has(keys[hpos]):
         v = self.cfg.get(keys[hpos])
@@ -622,9 +668,11 @@ class CSTester:
     '''
     Display an informational window describing groupmenu's view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.groupmenu).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.groupmenu).strip('\n').split('\n'),
+    )
 
   def groupmenu(self) -> None:
     '''
@@ -666,9 +714,13 @@ class CSTester:
     allgroups = expandnumrange(self.cfg.allgroups)
     hpos = 0
     while True:
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
-                                    title=title, disabled=getdisabled(),
-                                    choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
+        title=title,
+        disabled=getdisabled(),
+        choices=choices,
+        hpos=hpos,
+      )
       if c == 'KEY_DC':
         if self.cfg.has(keys[hpos]) and self.cfg.isset(keys[hpos]):
           self.cfg.resetattr(keys[hpos])
@@ -686,12 +738,14 @@ class CSTester:
         if self.cfg.isset(attr):
           chosen = expandnumrange(self.cfg.get(attr))
           chosen = [f'Group {group}' for group in chosen if group in allgroups]
-        _, _, groups = self.scr.window(WinOpt.RETURNMUL,
-                                      title=title,
-                                      chosen=chosen,
-                                      body=[f'Select groups to {attr}:',''],
-                                      choices=['Confirm selection',''] + \
-                                      [f'Group {group}' for group in allgroups])
+        _, _, groups = self.scr.window(
+          WinOpt.RETURNMUL,
+          title=title,
+          chosen=chosen,
+          body=[f'Select groups to {attr}:',''],
+          choices=['Confirm selection',''] + \
+          [f'Group {group}' for group in allgroups],
+        )
         if isinstance(groups, list):
           groups = ','.join([group.split(' ')[-1] for group in groups])
           groups = self.cfg.verifiednumrange(groups)
@@ -713,9 +767,11 @@ class CSTester:
     '''
     Display an informational window describing the evalmenu view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.evalmenu).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.evalmenu).strip('\n').split('\n'),
+    )
 
   def evalmenu(self) -> None:
     '''
@@ -756,9 +812,13 @@ class CSTester:
       return disabled
     hpos = 0
     while True:
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.USEHELP,
-                                    title=title, disabled=getdisabled(),
-                                    choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.USEHELP,
+        title=title,
+        disabled=getdisabled(),
+        choices=choices,
+        hpos=hpos,
+      )
       if c in CursesScreen.cancelkeys or keys[hpos] == 'return':
         return
       elif keys[hpos] == 'runtest':
@@ -781,9 +841,11 @@ class CSTester:
     '''
     Display an informational window describing the configure view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.configure).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.configure).strip('\n').split('\n'),
+    )
 
   def configure(self) -> None:
     '''
@@ -824,8 +886,12 @@ class CSTester:
                 else opts[o]+f': {self.cfg.get(o)}' for o in opts]
     hpos = 0
     while True:
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
-                                  title=title, choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.RETURNDEL|WinOpt.USEHELP,
+        title=title,
+        choices=choices,
+        hpos=hpos,
+      )
       if c in CursesScreen.cancelkeys or keys[hpos] == 'return':
         break
       elif c == 'KEY_DC':
@@ -841,9 +907,11 @@ class CSTester:
     '''
     Display an informational window describing the mainmenu view
     '''
-    self.scr.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                    title=f'{title} Help',
-                    choices=getdoc(self.mainmenu).strip('\n').split('\n'))
+    self.scr.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.mainmenu).strip('\n').split('\n'),
+    )
 
   def mainmenu(self) -> None:
     '''
@@ -872,9 +940,13 @@ class CSTester:
     choices = [opts[o] for o in opts]
     hpos = 0
     while True:
-      _, hpos, c = self.scr.window(WinOpt.RETURNKEY|WinOpt.USEHELP,
-                                    title=title, disabled=getdisabled(),
-                                    choices=choices, hpos=hpos)
+      _, hpos, c = self.scr.window(
+        WinOpt.RETURNKEY|WinOpt.USEHELP,
+        title=title,
+        disabled=getdisabled(),
+        choices=choices,
+        hpos=hpos,
+      )
       # allow to quit on escape, q, or Q:
       if c in CursesScreen.cancelkeys or keys[hpos] == 'quit':
         break

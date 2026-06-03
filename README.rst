@@ -26,6 +26,14 @@ and can be installed with the command ``pip install cstester``,
 alternatively, you may clone the repo and ``pip install -e .``
 for a "live" version.
 
+
+.. note::
+  This project is currently under active refinement
+
+  Documentation and minor changes should be expected
+
+  Refer to the `current documentation <https://chaseleif.tech/cstester>`_
+
 ----
 
 Commands
@@ -46,13 +54,14 @@ This utility was made to test many programming project/assignment submissions.
 While individual submissions do not need to be "group" submissions,
 this is how a submission is referred to, as a group's submission.
 
-Group's are differentiated from each other based on their number.
+Groups are differentiated from each other based on their number.
 
 .. note::
   Group numbers
     - Are **non-negative**, ``0|[1-9][0-9]*``
     - Do **not** have to be consecutive
     - Must **not** have leading zeroes
+    - ``number`` == ``str(int(number))``
 
 Numeric groups eases sorting and building include/exclude number/range lists
   - Commands performed need not apply to all groups
@@ -72,18 +81,31 @@ Some valid example number/range lists:
 Regular expressions
 -------------------
 
-Several options use regular expressions,
-these are case-insensitive and,
-*except for the search strings method*,
-are used with ``re.match`` so begin with an implied caret ``^``.
+Several options make use of regular expressions.
 
-Expressions are compiled with Python's re module,
-so refer to their excellent documentation for additonal information.
+REs are compiled with Python's re module, so refer to
+`their excellent documentation <https://docs.python.org/3/library/re.html>`_
+for additonal information.
+
+The search strings method
+  - reads files line-by-line
+  - uses ``re.search``
+  - will report whether the pattern is found anywhere in a line.
+
+All other regexes use ``re.match``
+  - they begin with an implicit caret ``^``
 
 The **group regex** string,
 to extract the group number from their zip filename,
-**must** have the group number in a capture group, e.g.,
-``projectgroup(\d+)_.*``.
+
+  - **must** have at least 1 capture group
+  - **must** have the group number in **the first** capture group and
+  - **must** be something which captures a valid group number
+
+These are all valid group regex strings:
+  - ``project(\d+)_.*``.
+  - ``(?:project|assignment)(\d+)_.*``
+  - ``(\d+)_.*``
 
 The optional **keyfile**, used to aid extraction,
 is an alternative to using a group regex, but is not as efficient.
@@ -160,12 +182,14 @@ but using the menus ensures the file is correct.
 Phase directory setup
 ---------------------
 
-One of the first things wich must be done is setting up the phase directory.
-This directory can be created in the extraction process,
-*extraction to an existing directory removes its contents*.
+One of the first things which must be done is setting up the phase directory.
+This directory can be created in the extraction process.
+
+.. caution::
+    *extraction to an existing directory removes its contents*
 
 The phase directory contains each group's submission in a subdirectory
-in the form ``group_n``, where n is a non-negative integer.
+in the form ``group_n``, where n is a valid group number.
 
 A ``phase zip`` can be chosen to extract to the selected ``phase directory``.
 
@@ -174,11 +198,15 @@ are used to associate group submission filenames with their group number.
 
 ``zip include`` is a dictionary option which specifies filenames that we
 explicitly want in a specific location in the group directory,
-e.g., ``"README":""`` means to put ``README`` in the group's root directory.
+e.g., ``"README":""`` means to put ``README`` in the group's root directory,
+and ``"driver.c":"src/"`` means to put ``driver.c`` in ``group_n/src/``.
 
 ``zip exclude`` is a list of files and directories to **not** extract.
+  - ``".*\.o"`` -- regex excludes object files
+  - ``"\..*"`` -- regex excludes files beginning with a period
 
-Both zip include and exclude are patterns compiled and used with ``re.match``.
+Both zip include and exclude are patterns compiled and used with ``re.match``,
+files and directory names are compared **case-insensitive** during extraction.
 
 ----
 
@@ -202,6 +230,9 @@ The "freeze" operation performs 2 important functions
   - matching files are archived in a zip in the root phase directory
   - the files' hashes are stored in a text file in the root phase directory
 
+.. note::
+
+  Performing a freeze will overwrite any previous freeze files
 
 The purpose of freezing files is to later make a patch.
 
@@ -215,10 +246,11 @@ Making patches
 --------------
 
 Unlike with the "freeze" operation, this doesn't require a regex:
-  1) the "frozen" text file is read,
-  2) the hashes for files listed are compared with their stored hash
-  3) when hashes differ a patch is created and placed next to the original
-  4) a listing of patches made is shown (or that no files were modified)
+  1) the "frozen" text file is read
+  2) files which no longer exist are ignored
+  3) the hashes for files listed are compared with their stored hash
+  4) when hashes differ a patch is created and placed next to the original
+  5) a listing of patches made is shown (or that none were created)
 
 Clean files
 -----------
@@ -307,13 +339,14 @@ That is, lines start with a valid group number,
 optionally followed by a comma and some series of text before a trailing colon,
 finally, the key to search for in the filename is after the final colon.
 
-For example, with
+For example, with either
 
 .. code::
 
   42,Group leader: A name, Members: Another name:groupname
+  42:othername
 
-if **groupname** exists within the filename
+if either **groupname** or **othername** exists within the filename
 then the group number will be inferred to be **42**.
 
 All regex matches performed during extraction are all **case-insensitive**.
@@ -351,9 +384,8 @@ Within group directories, e.g., ``phasedir/group_1/``
 
 The submissions zip is extracted to a temporary directory.
 
-We examine the zip memberlist against exclude patterns,
-and do not extract files which match (case-insensitive)
-an exclude pattern.
+For each group's zip, we examine the zip memberlist against exclude patterns
+and do not extract files which match (case-insensitive) an exclude pattern.
 
 For files we want at a specific location,
 these can be specified in the include pattern map:
@@ -362,20 +394,19 @@ these can be specified in the include pattern map:
   - The ``val`` is a relative location from the group directory
 
 .. hint::
-  include={'Makefile','','driver\.c','src}
+  include={'Makefile','','driver\.c','src'}
   Will put Makefile in the group's root directory and driver.c in src/
 
 
-We
-exclude (and print a warning) any symlinks within the archive. We
-extract the contents of the zip to a new temporary directory. We ensure
-all files are chmod 600 (**owner rw**), and all directories are chmod
-700 (**owner rwx**).
+We exclude (and print a warning) any symlinks within the archive.
+We extract the contents of the zip to a new temporary directory.
+We ensure all files are chmod 600 (**owner rw**),
+and all directories are chmod 700 (**owner rwx**).
 
 We move all files to the final extraction directory,
 we remove any special characters from file/directory names,
-and spaces are converted to underscores.
-We put the original zip in the group’s directory.
+and convert spaces to underscores.
+We put the save the original zip in the group’s directory.
 A text file, ``./sub.nfo``,
 will contain the zip filename,
 original content list with sizes (compressed/decompressed),

@@ -1,8 +1,7 @@
-import filecmp, os, re, shutil, stat, sys, unicodedata
+import filecmp, os, re, shutil, stat, sys
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path, PureWindowsPath
-from string import printable
 from tempfile import TemporaryDirectory
 from types import TracebackType
 from typing import Dict, List, Literal, Optional, Type, Tuple
@@ -78,7 +77,7 @@ class Extractor:
     logs = []
     keys = {}
     if keyfile is not None and os.path.isfile(keyfile):
-      keyregex = re.compile(r'^(\d+),.*:([^:]+)$')
+      keyregex = re.compile(r'^(0|[1-9][0-9]*)(?:,.*)?:([^:]+)$')
       # the key is what we search for (all after final colon, group 1)
       # keys[key] is the group number (all before first comma, group 0)
       try:
@@ -96,7 +95,7 @@ class Extractor:
     status = 'Collecting group numbers and zips'
     self.scr.statuswindow(title, status, logs)
     groups = {}
-    groupre = re.compile(groupre)
+    groupre = re.compile(groupre, re.IGNORECASE)
     # if we don't match with regex we'll try keys from keyfile
     for filename in os.listdir(tempdir):
       # a submission could include non-zip files, e.g., a txt or pdf
@@ -104,7 +103,7 @@ class Extractor:
         logs.append(f'skipping non-zip file {filename}')
         continue
       # try regex
-      match = groupre.match(filename.lower())
+      match = groupre.match(filename)
       if match:
         group = int(match.groups()[0])
       else:
@@ -130,10 +129,12 @@ class Extractor:
                 group = None
               else:
                 group = int(group)
-              _, _, c = self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                                        title=title,
-                                        err=[f'You entered group \"{group}\"'],
-                                        footer='Accept? [Y/n] ')
+              _, _, c = self.scr.window(
+                WinOpt.SHOWCURS|WinOpt.RETURNANY,
+                title=title,
+                err=[f'You entered group \"{group}\"'],
+                footer='Accept? [Y/n] ',
+              )
               if c not in ('N', 'n'):
                 break
             self.scr.statuswindow(title, status, logs)
@@ -150,9 +151,12 @@ class Extractor:
             group = steps.pop(0)
             group = int(group) if group.isnumeric() else None
           else:
-            _, g, c = self.scr.window(WinOpt.RETURNKEY,
-                                      title=title, choices=choices,
-                                      body=[f'Select group for {filename}'])
+            _, g, c = self.scr.window(
+              WinOpt.RETURNKEY,
+              title=title,
+              choices=choices,
+              body=[f'Select group for {filename}'],
+            )
             if c not in CursesScreen.cancelkeys:
               group = int(choices[g].split(')')[0])
             else:
@@ -196,10 +200,12 @@ class Extractor:
         i = steps.pop(0)
         i = int(i) if i.isnumeric() else None
       else:
-        _, i, c = self.scr.window(WinOpt.RETURNKEY,
-                                  title=title,
-                                  choices=[str(g) for g in groups[group]],
-                                  body=[f'Select group for {filename}'])
+        _, i, c = self.scr.window(
+          WinOpt.RETURNKEY,
+          title=title,
+          choices=[str(g) for g in groups[group]],
+          body=[f'Select group for {filename}'],
+        )
       if c in CursesScreen.cancelkeys:
         logs.append('*None chosen (group removed)')
         groups.remove(group)
@@ -243,24 +249,21 @@ class Extractor:
     logs, groups = self.getgroupfiles(tempdir, keyfile, groupre, steps)
     # groups should have a length
     if len(groups) == 0:
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=['Can\'t complete extraction'],
-                      err=[f'No group zip files found'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=['Can\'t complete extraction'],
+        err=[f'No group zip files found'],
+      )
       return []
     # permissions for extracted output
     dirchmod = stat.S_IRUSR|stat.S_IWUSR|stat.S_IXUSR
     filechmod = stat.S_IRUSR|stat.S_IWUSR
-    _exclude = [re.compile(pattern) for pattern in _exclude]
-    exclude = lambda name: name.lower() in _exclude or \
-          any([pattern.match(name.lower()) for pattern in _exclude])
+    _exclude = [re.compile(pattern, re.IGNORECASE) for pattern in _exclude]
+    exclude = lambda name: any([pattern.match(name) for pattern in _exclude])
     include = {re.compile(k):v for k,v in include.items()}
     # dst names are stripped of bad chars and lowercased
-    dstname = lambda name: 'Makefile' if name.lower() == 'makefile' else \
-                  re.sub(fr'[^_0-9a-zA-Z\.{os.path.sep}]','',name).lower()
-    # permissive chars for text file
-    valid_textchar = lambda c: c in printable or \
-                          not unicodedata.category(c).startswith('C')
+    dstname = lambda name: re.sub(r'[^_0-9a-z\.]', '', name.lower())
     err = []
     # get group numbers and each group's zip file
     for i, group in enumerate(groups):
@@ -461,18 +464,20 @@ class Extractor:
     Returns:
       Literal[-1, 0, 1]: (status)
 
-    0 = success
+     0 = success
 
     -1 = failure
 
-    1 = aborted
+     1 = aborted
     '''
     logfile = os.path.join(phasedir, 'x.log')
     if not os.path.isfile(phasezip):
-      self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      body=['Cannot extract phasezip'],
-                      err=[f'Not a file: \"{phasezip}\"'])
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=['Cannot extract phasezip'],
+        err=[f'Not a file: \"{phasezip}\"'],
+      )
       return -1
     steps = []
     if os.path.isfile(logfile):
@@ -482,21 +487,22 @@ class Extractor:
             line = line.split()[0][1:]
             steps.append(line)
       if steps:
-        _, _, c = self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                                 title=title,
-                                err=[f'Extraction log \"{logfile}\" ' + \
-                                      'already exists'],
-                                footer='Repeat ' + \
-                                        'previous decisions? [Y/n] ')
+        _, _, c = self.scr.window(
+          WinOpt.SHOWCURS|WinOpt.RETURNANY,
+          title=title,
+          err=[f'Extraction log \"{logfile}\" already exists'],
+          footer='Repeat previous decisions? [Y/n] ',
+        )
         if c in ('N', 'n'):
           steps = []
     if phasedir != os.getcwd() and \
         os.path.isdir(phasedir) and len(os.listdir(phasedir)) > 0:
-      _, _, c = self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                                title=title,
-                                err=[f'Output directory {phasedir} ' + \
-                                      'already exists'],
-                                footer='Delete directory? [y/N] ')
+      _, _, c = self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        err=[f'Output directory {phasedir} already exists'],
+        footer='Delete directory? [y/N] ',
+      )
       if c not in ('Y', 'y'):
         return 1
       shutil.rmtree(phasedir)
@@ -508,12 +514,12 @@ class Extractor:
         logs = self.extract(tempdir, phasedir, keyfile,
                             groupre, include, exclude, steps)
       except Exception as e:
-        self.scr.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                        title=title,
-                        body=[f'EXCEPTION opening/extracting: ' + \
-                              f'\"{phasezip}\"'],
-                        err=[m.strip() for m in \
-                              re.split(r'[:\n]+',str(e))])
+        self.scr.window(
+          WinOpt.SHOWCURS|WinOpt.RETURNANY,
+          title=title,
+          body=[f'EXCEPTION opening/extracting: \"{phasezip}\"'],
+          err=[m.strip() for m in re.split(r'[:\n]+',str(e))],
+        )
         return -1
     if not logs:
       return -1
