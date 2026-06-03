@@ -260,45 +260,34 @@ class CursesScreen:
 
     This method takes no input and immediately returns
     '''
-    try:
-      maxwidth = max(len(l) for l in body)
-    except ValueError:
-      maxwidth=0
-    if isinstance(err, str):
-      maxwidth = max(maxwidth, len(err))
-    elif err:
-      maxwidth = max(maxwidth, max(len(e) for e in err))
     titlecolor = self.titlecolor
     itemcolor = self.itemcolor
     errorcolor = self.errorcolor
     height, width = self.scr.getmaxyx()
-    lshift = max(0, (width-maxwidth)//2)
-    self.scr.erase()
-    linenum = 0
-    if title:
-      self.scr.addstr(linenum, (width-len(title))//2, title[:width], titlecolor)
+    lshift = max(len(l) for l in body) if body else 0
     if err:
-      linenum += 1
-      if type(err) is list:
-        lines = err[::-1][:height-linenum-2][::-1]
-        for e in lines:
-          linenum += 1
-          if linenum >= height: break
-          if e:
-            self.scr.addstr(linenum, lshift, e[:width], errorcolor)
-      else:
+      lshift = max(lshift, max(len(e) for e in err))
+    lshift = max(0, (width-lshift)//2)
+    self.scr.erase()
+    self.scr.addstr(0, max(0, (width-len(title))//2), title[:width], titlecolor)
+    linenum = 2
+    if err:
+      lines = err[::-1][:height-linenum-2][::-1]
+      for e in lines:
+        if linenum >= height-1: break
+        if e:
+          self.scr.addstr(linenum, lshift, e[:width], errorcolor)
         linenum += 1
-        if linenum < height:
-          self.scr.addstr(linenum, lshift, err[:width], errorcolor)
-    if body:
       linenum += 1
+    if body:
       lines = body[::-1][:height-linenum-2][::-1]
       for line in lines:
-        linenum += 1
+        if linenum >= height-1: break
         if line:
           self.scr.addstr(linenum, lshift, line[:width], itemcolor)
-    lshift = max(0, (width-len(status))//2)
-    self.scr.addstr(height-1, lshift, status[:width], itemcolor)
+        linenum += 1
+    self.scr.addstr(height-1, max(0, (width-len(status))//2),
+                    status[:width], itemcolor)
     self.scr.refresh()
 
   def getinput(self, title: str, prompt: str,
@@ -316,7 +305,7 @@ class CursesScreen:
     '''
     titlecolor = self.titlecolor
     itemcolor = self.itemcolor
-    # val and history of val for undo
+    # history of val for undo (ctrl-z)
     history = deque(maxlen=32)
     height, width = self.scr.getmaxyx()
     # cursor offset from end of string (number of columns to move left)
@@ -326,17 +315,15 @@ class CursesScreen:
       curses.curs_set(2)
       # and movement updates
       self.scr.leaveok(False)
-      # NOTE: unsure if this is necessary
-      # an unhandled input from the in-str building block
-      unhandledch = None
       while True:
-        self.scr.erase()
-        lpos = max(0, (width-len(title))//2)
-        self.scr.addstr(0, lpos, title[:width], titlecolor)
-        lpos = max(0, (width-len(prompt))//2)
         if 2 >= height:
           break
-        self.scr.addstr(2, lpos, prompt[:width], itemcolor)
+        self.scr.erase()
+        self.scr.addstr(0, max(0, (width-len(title))//2),
+                        title[:width], titlecolor)
+        lpos = max(0, (width-len(prompt))//2)
+        self.scr.addstr(2, max(0, (width-len(prompt))//2),
+                        prompt[:width], itemcolor)
         if val:
           line = 4
           lpos = max(0, (width-len(val))//2)
@@ -392,13 +379,8 @@ class CursesScreen:
             break
           self.scr.move(4, width//2)
         self.scr.refresh()
-        ret = False
         while True:
-          if unhandledch is None:
-            c = self.scr.getkey()
-          else:
-            c = unhandledch
-            unhandledch = None
+          c = self.scr.getkey()
           # cancel
           if c in CursesScreen.cancelkeys:
             return None
@@ -406,7 +388,7 @@ class CursesScreen:
           if c in CursesScreen.returnkeys:
             return val
           # backspace
-          if c in ['KEY_BACKSPACE', '\b']:
+          if c in ('KEY_BACKSPACE', '\b'):
             if val:
               history.append(val)
               # remove the trailing char
@@ -416,11 +398,11 @@ class CursesScreen:
               else:
                 val = val[:-cursleft][:-1] + val[-cursleft:]
                 # if we remove the first char we have to decrement cursleft
-                if cursleft > len(val):
-                  cursleft -= 1
+                cursleft = min(cursleft, len(val))
               break
+            continue
           # delete or 0x7f
-          if c in ['KEY_DC', '\x7f']:
+          if c in ('KEY_DC', '\x7f'):
             if cursleft > 0:
               # we act the same as backspace, except with cursleft 1 less
               cursleft -= 1
@@ -431,40 +413,53 @@ class CursesScreen:
               # otherwise we slice out our position
               else:
                 val = val[:-cursleft][:-1] + val[-cursleft:]
+              # restore cursleft
               cursleft += 1
+              # ensure we don't go past the len of the val
               cursleft = min(cursleft, len(val))
               break
+            continue
           if c == 'KEY_RESIZE':
             height, width = self.scr.getmaxyx()
             break
           # ctrl-z
-          if c == '\x1a' and len(history) > 0:
-            val = history.pop()
-            break
+          if c == '\x1a':
+            if len(history) > 0:
+              val = history.pop()
+              break
+            continue
           # move the insert cursor
-          if c == 'KEY_LEFT' and cursleft < len(val):
-            cursleft += 1
-            break
-          if c == 'KEY_RIGHT' and cursleft > 0:
-            cursleft -= 1
-            break
-          if c == 'KEY_HOME' and cursleft != len(val):
-            cursleft = len(val)
-            break
-          if c == 'KEY_END' and cursleft > 0:
-            cursleft = 0
-            break
+          if c == 'KEY_LEFT':
+            if cursleft < len(val):
+              cursleft += 1
+              break
+            continue
+          if c == 'KEY_RIGHT':
+            if cursleft > 0:
+              cursleft -= 1
+              break
+            continue
+          if c == 'KEY_HOME':
+            if cursleft != len(val):
+              cursleft = len(val)
+              break
+            continue
+          if c == 'KEY_END':
+            if cursleft > 0:
+              cursleft = 0
+              break
+            continue
           # some unhandled key
           if c.startswith('KEY_'):
             continue
-          # not valid input
+          # not input
           if ord(c) < 32 or ord(c) > 126:
             continue
-          # valid input, save the current value in history
+          # input, save the current value in history
           history.append(val)
           # attempt to collect many chars, e.g., "paste"
           self.scr.timeout(CursesScreen.inputtimeout)
-          instr = c
+          inputstring = c
           try:
             while True:
               try:
@@ -472,22 +467,23 @@ class CursesScreen:
               except curses.error:
                 break
               if c.startswith('KEY_') or ord(c) < 32 or ord(c) > 126:
-                unhandledch = c
+                # push it back into the input and stop
+                curses.ungetch(c)
                 break
-              instr += c
-          # set getkey to be blocking again
+              inputstring += c
+          # set input to be blocking again
           finally:
             self.scr.timeout(-1)
-          # put the in str where the cursor is
+          # put the input string where the cursor is
           # append when cursor is max right
           if cursleft == 0:
-            val = f'{val}{instr}'
+            val = f'{val}{inputstring}'
           # prepend when cursor is max left
           elif cursleft == len(val):
-            val = f'{instr}{val}'
+            val = f'{inputstring}{val}'
           # splice in middle otherwise
           else:
-            val = f'{val[:-cursleft]}{instr}{val[-cursleft:]}'
+            val = f'{val[:-cursleft]}{inputstring}{val[-cursleft:]}'
           # we took at least 1 char, so break to print it
           break
     finally:
@@ -549,15 +545,18 @@ class CursesScreen:
       - A key in :py:attr:`CursesScreen.cancelkeys`
       - A key in ``helpkeys``, if a corresponding help method not called
     '''
-    # insert a generic footer if not provided given opt combinations
-    if not footer and (opts&WinOpt.SHOWCURS) and (opts&WinOpt.RETURNANY):
-      footer = 'Press the any key to continue . . . '
     # validate we have a place to put the cursor
-    if (opts&WinOpt.SHOWCURS) and not footer:
-      # remove the SHOWCURS flag
-      opts ^= WinOpt.SHOWCURS
+    if not footer and (opts&WinOpt.SHOWCURS):
+      # if we want the any key, insert a generic footer
+      # otherwise remove SHOWCURS from opts
+      if (opts&WinOpt.RETURNANY):
+        footer = 'Press the any key to continue . . . '
+      else:
+        opts ^= WinOpt.SHOWCURS
+    # add default help keys
     if not helpkeys and (opts&WinOpt.USEHELP):
       helpkeys = CursesScreen.helpkeys
+    # add default return keys
     if not returnkeys and (opts&(WinOpt.RETURNKEY|WinOpt.RETURNMUL)):
       returnkeys = CursesScreen.returnkeys
     # track width to center text
@@ -569,9 +568,11 @@ class CursesScreen:
     if choices:
       maxwidth = max(maxwidth, max(len(c) for c in choices))
     if helpkeys and helpstr:
+      # put helpkeys into helpstr if @keys@ is in helpstr
       helpstr = helpstr.replace('@keys@', ', '.join(helpkeys))
       maxwidth = max(maxwidth, len(helpstr))
     else:
+      # ensure not helpstr if not helpkeys or not helpstr
       helpstr = ''
     # set colors to be used
     disabledcolor = self.disabledcolor
@@ -589,7 +590,6 @@ class CursesScreen:
     # amount shifted right for long lines
     rshift = [0 for _ in range(len(choices))]
     maxhpos = len(choices) - 1
-    deleted = []
     # each "section" given a preceding space, if there's a preceding section
     #<title>            1 line
     #<err> len()        n lines
@@ -597,6 +597,7 @@ class CursesScreen:
     #<choices> len()    n lines
     #footer             1 line
     #helpstr (if help)  1 line
+    # the line for --MORE--
     moreline = -2 if footer or helpstr else -1
     try:
       # restore cursor if we want to show it
@@ -607,8 +608,8 @@ class CursesScreen:
         # clear the screen
         self.scr.erase()
         # add the title
-        lpos = max(0, (width-len(title))//2)
-        self.scr.addstr(0, lpos, title[:width], titlecolor)
+        self.scr.addstr(0, max(0, (width-len(title))//2),
+                        title[:width], titlecolor)
         # track the line number we are printing to
         linenum = 2
         # print all lines of err
@@ -617,7 +618,7 @@ class CursesScreen:
             if linenum >= height:
               break
             if line:
-              self.scr.addstr(linenum, lshift, line[:width], errorcolor)
+              self.scr.addstr(linenum, lshift, line[:width-lshift], errorcolor)
             linenum += 1
           linenum += 1
         # print all lines of the body
@@ -626,7 +627,7 @@ class CursesScreen:
             if linenum >= height:
               break
             if line:
-              self.scr.addstr(linenum, lshift, line[:width], itemcolor)
+              self.scr.addstr(linenum, lshift, line[:width-lshift], itemcolor)
             linenum += 1
           # separate body from remainder with another newline
           linenum += 1
@@ -636,8 +637,6 @@ class CursesScreen:
           # we cannot go beyond height if choices is a long list
           if linenum >= height:
             break
-          if i+top in deleted:
-            continue
           if line:
             # set the color to active if this is our highlight position
             if not (opts&WinOpt.TEXTBOX) and i+top == hpos and lshift > 1:
@@ -650,7 +649,8 @@ class CursesScreen:
                       if line in chosen \
                     else itemcolor
             self.scr.addstr(linenum, lshift,
-                            line[rshift[i+top]:width-lshift+rshift[i+top]-1], color)
+                            line[rshift[i+top]:width-lshift+rshift[i+top]-1],
+                            color)
           linenum += 1
           if i+top == len(choices)-1:
             pass
@@ -666,8 +666,8 @@ class CursesScreen:
         if footer:
           linenum += 1
           if linenum < height:
-            lpos = max(0, (width-len(footer))//2)
-            self.scr.addstr(linenum, lpos, footer[:width], itemcolor)
+            self.scr.addstr(linenum, max(0, (width-len(footer))//2),
+                            footer[:width], itemcolor)
             cursy, cursx = self.scr.getyx()
           else:
             cursy = height
@@ -675,8 +675,8 @@ class CursesScreen:
         if helpstr:
           linenum += 1
           if linenum < height:
-            lpos = max(0, (width-len(helpstr))//2)
-            self.scr.addstr(linenum, lpos, helpstr[:width], itemcolor)
+            self.scr.addstr(linenum, max(0, (width-len(helpstr))//2),
+                            helpstr[:width], itemcolor)
         if i+top < len(choices)-1:
           self.scr.addstr(height+moreline, 0,
                           '--More--'[:width], self.standoutcolor)
@@ -706,7 +706,7 @@ class CursesScreen:
               helpfn = None
               # we were called by a class
               if inst is not None:
-                # the class has a help_{function_name} name
+                # the class has a help_{function_name} method
                 helpfn = getattr(inst, f'help_{frame_info.function}', None)
               # call their help function and forward their title
               if callable(helpfn):
@@ -729,30 +729,36 @@ class CursesScreen:
                 self.scr.leaveok(False)
               # delete vars to ensure the references go away
               del frame_info, inst, helpfn
-          # if returndel is None we don't respond to the delete key
+          # delete key
           elif c in ('KEY_DC', '\x7f') and (opts&WinOpt.RETURNDEL):
             return top, hpos, 'KEY_DC'
-          # on enter we return our highlighted position
+          # return key
           elif (opts&(WinOpt.RETURNKEY|WinOpt.RETURNMUL)) and c in returnkeys:
-            # multi-select we return this list on the first choice
-            # the first choice should be a variation of 'confirm'
             if (opts&WinOpt.RETURNMUL):
+              # for multi-select we return chosen on hpos == 0
+              # the first choice (hpos==0) should be a variation of 'confirm'
               if hpos == 0:
                 return top, hpos, chosen
+              # otherwise we add the choice to chosen or remove it (toggle)
               if choices[hpos] in chosen:
                 del chosen[chosen.index(choices[hpos])]
               else:
                 chosen.append(choices[hpos])
-              break
-            return top, hpos, c
+            else:
+              # if not multi-select we just return hpos (and the return char)
+              return top, hpos, c
           # return on cancel key
           elif c in CursesScreen.cancelkeys:
             return top, hpos, c
           # go to the top
           elif c == 'KEY_HOME':
+            # let the home key also reset all rshifts
             rshift = [0 for _ in rshift]
-            hpos = 0
-            direction = -1
+            # if we actually move change hpos and set direction
+            if hpos > 0:
+              hpos = 0
+              direction = -1
+            # either way, we at least may have changed rshift
             break
           # go to the bottom
           elif c == 'KEY_END' and hpos < maxhpos:
@@ -786,10 +792,12 @@ class CursesScreen:
           # move right
           elif c == 'KEY_RIGHT':
             if (opts&WinOpt.TEXTBOX):
+              # scroll the entire pane together
               if lshift+maxwidth-rshift[0] >= width:
                 rshift = [shmt+1 for shmt in rshift]
                 break
             elif lshift+len(choices[hpos][rshift[hpos]:]) > width:
+              # scroll the line
               rshift[hpos] += 1
               break
           elif c == 'KEY_LEFT' and rshift[hpos] > 0:
@@ -799,6 +807,7 @@ class CursesScreen:
               rshift[hpos] -= 1
             break
           elif c == 'KEY_RESIZE':
+            # reset rshift on resizes
             rshift = [0 for _ in rshift]
             # get new dimensions
             height, width = self.scr.getmaxyx()
@@ -806,19 +815,21 @@ class CursesScreen:
             if (opts&WinOpt.RETURNMUL):
               lshift += 2
             break
+        # verify hpos and topline
         if direction != 0:
+          # ensure hpos lands on something valid
           while hpos >= 0 and hpos <= maxhpos and \
-                (hpos in disabled or hpos in deleted or not choices[hpos]):
+                (hpos in disabled or not choices[hpos]):
             hpos += direction
-          # if we go OOB move us to the nearest choice
+          # if we go OOB reverse and move to the nearest choice
           if hpos < 0 or hpos > maxhpos:
             direction = -direction
             hpos += direction
             while hpos >= 0 and hpos <= maxhpos and \
-                  (hpos in disabled or hpos in deleted or not choices[hpos]):
+                  (hpos in disabled or not choices[hpos]):
               hpos += direction
             direction = -direction
-          # gaurd against OOB hpos
+          # final gaurd against OOB hpos
           if hpos < 0:
             hpos = 0
           elif hpos > maxhpos:
@@ -830,8 +841,8 @@ class CursesScreen:
               top = hpos = maxhpos - nchoicelines
         if hpos - top < 0:
           top = hpos
-        elif choicestart + hpos - top + (2 if helpstr else 0) >= height:
-          top = choicestart + hpos - height + 1 + (2 if helpstr else 0)
+        elif choicestart + hpos - top + (2 if helpstr else 1) >= height:
+          top = choicestart + hpos - height + 1 + (2 if helpstr else 1)
     finally:
       # hide the cursor if we used it
       if (opts&WinOpt.SHOWCURS):
@@ -885,16 +896,22 @@ class CursesScreen:
         names = ['Select directory',
                 '\b\bChange directory:'] + names
       # get the response
-      top, hpos, c = self.window(WinOpt.RETURNKEY,
-                                title=title, body=body,
-                                disabled=[names.index('\b\bChange directory:')],
-                                choices=names, top=top, hpos=hpos)
+      top, hpos, c = self.window(
+        WinOpt.RETURNKEY,
+        title=title,
+        body=body,
+        disabled=[names.index('\b\bChange directory:')],
+        choices=names,
+        top=top,
+        hpos=hpos,
+      )
       # allow to return without opening a file:
       if c in CursesScreen.cancelkeys:
         return None
       # choice is Select
       if hpos == 0:
         return f'{path}'
+      # choice is Make subdirectory
       if allownew and hpos == 1:
         dirname = self.getinput(title, 'Enter new directory name:')
         if dirname is None:
@@ -904,21 +921,29 @@ class CursesScreen:
           return f'{path / dirname}'
         except FileExistsError:
           if os.path.isdir(path / dirname):
-            self.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                        title=title,
-                        err=f'Directory {dirname} exists')
+            self.window(
+              WinOpt.SHOWCURS|WinOpt.RETURNANY,
+              title=title,
+              err=f'Directory {dirname} exists',
+            )
           else:
-            self.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                        title=title,
-                        err=f'Directory {dirname} is a file')
+            self.window(
+              WinOpt.SHOWCURS|WinOpt.RETURNANY,
+              title=title,
+              err=f'Directory {dirname} is a file',
+            )
         except PermissionError:
-          self.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      err=f'No permission to create {dirname}')
+          self.window(
+            WinOpt.SHOWCURS|WinOpt.RETURNANY,
+            title=title,
+            err=f'No permission to create {dirname}',
+          )
         except Exception as e:
-          self.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                      title=title,
-                      err=[m.strip() for m in re.split(r'[:\n]+', str(e))])
+          self.window(
+            WinOpt.SHOWCURS|WinOpt.RETURNANY,
+            title=title,
+            err=[m.strip() for m in re.split(r'[:\n]+', str(e))],
+          )
       # we selected to go up
       elif names[hpos] == '..':
         path = path.parent
@@ -961,10 +986,12 @@ class CursesScreen:
     try:
       match = re.compile(filere)
     except Exception as e:
-      self.window(WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                  title=title,
-                  body=['Exception during re.compile'],
-                  err=[m.strip() for m in re.split(r'[:\n]}',str(e))])
+      self.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNANY,
+        title=title,
+        body=['Exception during re.compile'],
+        err=[m.strip() for m in re.split(r'[:\n]}',str(e))],
+      )
       return None
     body = [prompt, '', f'Path: {path}', '']
     top = 0
@@ -995,11 +1022,18 @@ class CursesScreen:
       disabled = [0, names.index('')]
       names[disabled[-1]] = '\b\bSelect file:'
       # get the response
-      top, hpos, c = self.window(WinOpt.RETURNKEY,
-                                  title=title, body=body, disabled=disabled,
-                                  choices=names, top=top, hpos=hpos)
+      top, hpos, c = self.window(
+        WinOpt.RETURNKEY,
+        title=title,
+        body=body,
+        disabled=disabled,
+        choices=names,
+        top=top,
+        hpos=hpos,
+      )
       # allow to return without opening a file:
-      if c in CursesScreen.cancelkeys: return None
+      if c in CursesScreen.cancelkeys:
+        return None
       # we selected to go up
       if names[hpos] == '..':
         path = path.parent
@@ -1191,9 +1225,11 @@ class CursesScreen:
     '''
     help_diffwindow displays an infowindow with diffwindow's docstr
     '''
-    self.window(WinOpt.RETURNKEY|WinOpt.TEXTBOX,
-                title=f'{title} Help',
-                choices=getdoc(self.diffwindow).strip('\n').split('\n'))
+    self.window(
+      WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+      title=f'{title} Help',
+      choices=getdoc(self.diffwindow).strip('\n').split('\n'),
+    )
 
   def diffwindow(self,
                 args: Tuple[str, str, List[str], str, List[str]]) -> None:
@@ -1210,22 +1246,29 @@ class CursesScreen:
       - Toggle line-number printing:  n N
       - Quit:  <ESC> q Q
     '''
-    # diffwindow args = title, ltitle, lhs, rtitle, rhs
-    title = args[0]
+
     helpkeys = CursesScreen.helpkeys
-    helpstr = 'Help: {@keys@}'.replace('@keys@',', '.join(helpkeys))
-    # remove empty lines, trailing whitespace, and tabs from lhs / rhs
+    helpstr = 'Help: {@keys@}'.replace('@keys@', ', '.join(helpkeys))
+
+    # diffwindow args = title, ltitle, lhs, rtitle, rhs
+    # ignore empty lines, trailing whitespace, and substitute tabs in lhs/rhs
+    title = args[0]
+    ltitle = args[1]
     lhs = [line.rstrip().replace('\t',' '*CursesScreen.tabsize) \
                                                 for line in args[2] \
                                                 if line.strip() != '']
+    if not lhs:
+      ltitle += ' (no contents)'
+    rtitle = args[3]
     rhs = [line.rstrip().replace('\t',' '*CursesScreen.tabsize) \
                                                 for line in args[4] \
                                                 if line.strip() != '']
+    if not rhs:
+      rtitle += ' (no contents)'
+
     # get column length for lhs and rhs (max of any element)
-    ltitle = args[1] if lhs else f'{args[1]} (no contents)'
-    lwidth = max([len(row) for row in lhs]) if lhs else 0
-    rtitle = args[3] if rhs else f'{args[3]} (no contents)'
-    rwidth = max([len(row) for row in rhs]) if rhs else 0
+    lwidth = max(len(row) for row in lhs) if lhs else 0
+    rwidth = max(len(row) for row in rhs) if rhs else 0
     # track the height/width
     height, width = self.scr.getmaxyx()
     # track top left 'coordinate' of the text in the lists
@@ -1239,8 +1282,8 @@ class CursesScreen:
     # 1 row remains on screen (at bottom)
     minpos = [-height+1, -4]
     # max pos prints 1 row of a pane (at top), right col of line
-    maxlpos = [len(lhs)-1, lwidth-1]
-    maxrpos = [len(rhs)-1, rwidth-1]
+    maxlpos = (len(lhs)-1, lwidth-1)
+    maxrpos = (len(rhs)-1, rwidth-1)
     # allow independent scrolling, default is locked left/right
     singlescroll = False
     # side toggle for independent scrolling, defaults to left side
@@ -1279,20 +1322,19 @@ class CursesScreen:
     # inject a resize event into the input stream
     # our first getch will be resize which triggers a "repaint"
     curses.ungetch(curses.KEY_RESIZE)
-    # these chars will quit: escape = 27, 'Q'=81, 'q'=113
-    while c not in CursesScreen.cancelkeys:
+    while True:
       c = self.scr.getkey()
-      # do keys that won't trigger repainting first to set whether to repaint
-      repaint = False
+      if c in CursesScreen.cancelkeys:
+        break
+      # handle keys that don't trigger repainting first
       # the space key toggles independent scrolling
       if c == ' ':
         singlescroll = not singlescroll
+        continue
       # the tab key toggles whether lhs or rhs is the actively scrolled tab
       elif c == '\t':
         leftscroll = not leftscroll
-      # otherwise we will repaint if any of the following conditions matches
-      else:
-        repaint = True
+        continue
       # help
       if c in helpkeys:
         self.help_diffwindow(title)
@@ -1306,10 +1348,10 @@ class CursesScreen:
         if rpos[0] < minpos[0]:
           rpos[0] = minpos[0]
       # toggle line match highlight with [dD] (for diff)
-      elif c in ['D', 'd']:
+      elif c in ('D', 'd'):
         highlight = not highlight
       # toggle printing line numbers with [nN]
-      elif c in ['N', 'n']:
+      elif c in ('N', 'n'):
         linenums = not linenums
       # plus key to shift pane separator right
       elif c == '+' and width//2+paneshmt < width-2:
@@ -1385,10 +1427,8 @@ class CursesScreen:
             lpos[1] += 1
           if scroll('right') and rpos[1] < maxrpos[1]:
             rpos[1] += 1
-      # if we didn't change the pos then don't repaint
+      # if we didn't match a condition above then don't repaint
       else:
-        repaint = False
-      # repaint if repaint wasn't set to false
-      if repaint:
-        self.drawsplitpane(lhs, lpos, rhs, rpos, highlight, paneshmt,
-                            ltitle, rtitle, linenums, helpstr)
+        continue
+      self.drawsplitpane(lhs, lpos, rhs, rpos, highlight, paneshmt,
+                          ltitle, rtitle, linenums, helpstr)
