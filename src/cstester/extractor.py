@@ -95,7 +95,13 @@ class Extractor:
     status = 'Collecting group numbers and zips'
     self.scr.statuswindow(title, status, logs)
     groups = {}
-    groupre = re.compile(groupre, re.IGNORECASE)
+    # allow to not have a group regex
+    if not groupre:
+      # this will match any file not ending with p, so will not match
+      groupre = re.compile('.*[^p]$', re.IGNORECASE)
+    else:
+      # compile the provided group regex
+      groupre = re.compile(groupre, re.IGNORECASE)
     # if we don't match with regex we'll try keys from keyfile
     for filename in os.listdir(tempdir):
       # a submission could include non-zip files, e.g., a txt or pdf
@@ -125,17 +131,18 @@ class Extractor:
             while True:
               group = self.scr.getinput(title,
                                         f'Enter group for file: {filename}')
-              if group is not None and not group.isnumeric():
+              if group is None or not group.isnumeric():
                 group = None
-              else:
-                group = int(group)
+                break
+              group = int(group)
               _, _, c = self.scr.window(
                 WinOpt.SHOWCURS|WinOpt.RETURNANY,
-                title=title,
-                err=[f'You entered group \"{group}\"'],
-                footer='Accept? [Y/n] ',
+                title = title,
+                err = [filename],
+                body = [f'You entered group \"{group}\"'],
+                footer = 'Accept? [Y/n] ',
               )
-              if c not in ('N', 'n'):
+              if c in self.scr.cancelkeys or c not in ('N', 'n'):
                 break
             self.scr.statuswindow(title, status, logs)
           logs.append(f'*{group} entered for group when none found: {filename}')

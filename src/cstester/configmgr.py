@@ -243,11 +243,12 @@ class ConfigManager:
         err=[m.strip() for m in re.split(r'[:\n]+',str(e))],
       )
 
-  def verifiedregex(self, val: VarVal) -> VarVal:
+  def verifiedregex(self, key: str, val: VarVal) -> VarVal:
     '''
     Validate ``val`` using :py:func:`re.compile`
 
     Args:
+      key (str): The configuration key
       val :type Optional[str], or Tuple[str, Optional[str]]:
         Input value
 
@@ -258,7 +259,7 @@ class ConfigManager:
       self.scr.window(
         WinOpt.SHOWCURS|WinOpt.RETURNANY,
         title='Regex compile verification',
-        body=['Exception during re.compile'],
+        body=['Failed re.compile verification'],
         err=[m.strip() for m in re.split(r'[:\n]+',e)],
       )
     # reject empty string as well as None for regexes
@@ -273,8 +274,11 @@ class ConfigManager:
           badregex(str(e))
     elif val:
       try:
-        re.compile(val)
-        return val
+        pattern = re.compile(val)
+        if key == 'groupre_str' and pattern.groups == 0:
+          badregex('Group regex strings require a capture group')
+        else:
+          return val
       except re.error as e:
         badregex(str(e))
 
@@ -345,7 +349,7 @@ class ConfigManager:
       :type Optional[str], or Tuple[str, Optional[str]]: Verified value
     '''
     if key in self.regexes:
-      return self.verifiedregex(val)
+      return self.verifiedregex(key, val)
     elif key in self.numranges:
       return self.verifiednumrange(val)
     elif key in self.commands:
