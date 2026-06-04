@@ -7,7 +7,7 @@ from zipfile import ZipFile
 from .win import CursesScreen, WinOpt
 from .configmgr import ConfigManager
 from .extractor import Extractor
-from .utils import getfilehash, expandnumrange, runprocess
+from .utils import getfilehash, getgroups, expandnumrange, runprocess
 
 '''
     Copyright (C) 2026  Chase Phelps
@@ -65,39 +65,6 @@ class CSTester:
       self.scr.cleanup()
     self.scr = None
 
-  def refreshallgroups(self, title: str,
-                        extracted: Optional[bool]=False) -> None:
-    '''
-    Refresh the group numrange strings for all groups in the phase directory
-
-    Args:
-      title (str): Display title used while refreshing
-      extracted (bool, Optional): If True don't check whether groups changed
-    '''
-    if not os.path.isdir(self.cfg.phasedir):
-      return
-    allgroups = [name for name in os.listdir(self.cfg.phasedir) if \
-                os.path.isdir(os.path.join(self.cfg.phasedir,name)) and \
-                name.startswith('group_')]
-    allgroups = sorted([int(group.split('_')[-1]) for group in allgroups])
-    count = len(allgroups)
-    allgroups = ','.join([str(group) for group in allgroups])
-    allgroups = self.cfg.verifiednumrange(allgroups)
-    if not extracted and allgroups == self.cfg.allgroups:
-      self.scr.window(
-        WinOpt.SHOWCURS|WinOpt.RETURNANY,
-        title=title,
-        body=[f'Found {count} groups'],
-        err=['Group list already up-to-date'],
-      )
-    else:
-      self.cfg.set('allgroups', allgroups)
-      self.scr.window(
-        WinOpt.SHOWCURS|WinOpt.RETURNANY,
-        title=title,
-        body=['Group list updated', '', f'Found {count} groups'],
-      )
-
   def getgrouplists(self) -> Tuple[List[str], List[str], List[str]]:
     '''
     Return included, excluded, and all group lists (expanded)
@@ -105,9 +72,10 @@ class CSTester:
     Returns:
       Tuple[List[str], List[str], List[str]]: (included, excluded, allgroups)
     '''
+    allgroups = [str(group) for group in getgroups(self.cfg.phasedir)]
     return (expandnumrange(self.cfg.include),
             expandnumrange(self.cfg.exclude),
-            expandnumrange(self.cfg.allgroups))
+            expandnumrange(allgroups))
 
   def getfilteredgroups(self) -> List[str]:
     '''
@@ -659,7 +627,6 @@ class CSTester:
             body=['Phasezip not extracted'],
             err=[f'Extraction aborted'],
           )
-        self.refreshallgroups(title=title, extracted=True)
       if self.cfg.has(keys[hpos]):
         v = self.cfg.get(keys[hpos])
         choices[hpos] = values[hpos] + (': (unset)' if not v else f': {v}')
@@ -685,7 +652,6 @@ class CSTester:
     title = f'{self.name} - Group Directories Menu'
     # the choices
     opts = {
-            'refresh':'Refresh all groups list',
             'chooseinc':'Select groups to only include',
             'include':'Enter groups to only include',
             'chooseexc':'Select groups to exclude',
@@ -711,7 +677,7 @@ class CSTester:
     choices = [opts[o] if not self.cfg.has(o) \
                 else opts[o]+': (unset)' if not self.cfg.isset(o) \
                 else opts[o]+f': {self.cfg.get(o)}' for o in opts]
-    allgroups = expandnumrange(self.cfg.allgroups)
+    allgroups = getgroups(self.cfg.phasedir)
     hpos = 0
     while True:
       _, hpos, c = self.scr.window(
@@ -727,9 +693,6 @@ class CSTester:
       # allow to quit on escape, q, or Q:
       elif c in CursesScreen.cancelkeys or keys[hpos] == 'return':
         break
-      elif keys[hpos] == 'refresh':
-        self.refreshallgroups(title=title)
-        allgroups = expandnumrange(self.cfg.allgroups)
       elif self.cfg.has(keys[hpos]):
         self.cfg.modifyconf(keys[hpos], title)
       elif keys[hpos] in ['chooseinc','chooseexc']:

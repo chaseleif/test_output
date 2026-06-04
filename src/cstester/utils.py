@@ -87,6 +87,25 @@ def getfilehash(filename: str) -> str:
       m.update(chunk)
   return m.hexdigest()
 
+def getgroups(phasedir: str) -> List[int]:
+    '''
+    Get the (int, sorted) valid group directories within the phase directory
+
+    Args:
+      phasedir (str): The phase directory
+
+    Returns:
+      List[str]: List of group directories within phasedir
+    '''
+    if not os.path.isdir(phasedir):
+      return []
+    groups = [name for name in os.listdir(phasedir) if \
+              os.path.isdir(os.path.join(phasedir, name)) and \
+              name.startswith('group_')]
+    groups = sorted([int(group.split('_')[-1])for group in groups if \
+                    group.split('_')[-1].isnumeric()])
+    return groups
+
 def removecommonprefix(left: str, right: str) -> Tuple[str, str]:
   '''
   This method is used to  the common prefix from 2 files
