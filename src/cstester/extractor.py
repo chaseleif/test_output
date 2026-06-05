@@ -267,7 +267,8 @@ class Extractor:
     dirchmod = stat.S_IRUSR|stat.S_IWUSR|stat.S_IXUSR
     filechmod = stat.S_IRUSR|stat.S_IWUSR
     _exclude = [re.compile(pattern, re.IGNORECASE) for pattern in _exclude]
-    exclude = lambda name: any([pattern.match(name) for pattern in _exclude])
+    exclude = lambda name: name == '..' or \
+                          any(pattern.match(name) for pattern in _exclude)
     include = {re.compile(k):v for k,v in include.items()}
     # dst names are stripped of bad chars and lowercased
     dstname = lambda name: re.sub(r'[^_0-9a-z\.]', '', name.lower())
@@ -301,15 +302,17 @@ class Extractor:
                 continue
               # zips created in Windows will have \\ separators
               # PureWindowsPath can split both proper and Windows paths
-              for part in PureWindowsPath(member.filename).parts:
-                if exclude(part):
-                  excludelist.append(member.filename)
-                  break
-              if not excludelist or excludelist[-1] != member.filename:
+              if any(exclude(part) \
+                      for part in PureWindowsPath(member.filename).parts):
+                excludelist.append(member.filename)
+              else:
                 compress_size += member.compress_size
                 file_size += member.file_size
                 members.append(member.filename)
-            ratio = file_size / compress_size
+            if compress_size > 0:
+              ratio = file_size / compress_size
+            else:
+              ratio = -1
             # record the zip info
             with open(f'{xpath}/sub.nfo','w') as outfile:
               outfile.write(os.path.basename(zipname)+'\n')
@@ -323,6 +326,10 @@ class Extractor:
               if excludelist:
                 outfile.write('Excluded:\n')
                 outfile.write('\n'.join(sorted(excludelist))+'\n')
+            if ratio < 0:
+              msg = f'SKIPPING Group {group} zip file: ' + \
+                    f'{zipname} had no compressed size'
+              raise BadZipFile(msg)
             if ratio > 6:
               msg = f'SKIPPING Group {group} zip file: ' + \
                     f'{zipname} bad compression ratio {ratio:.2f}x'
@@ -332,8 +339,9 @@ class Extractor:
           shutil.move(zipname, f'{xpath}/group{group}.zip')
           logs.append('EXCEPTION opening/extracting archive')
           logs.append(f'Group {group}: {os.path.basename(zipname)}')
-          logs.append(str(e).strip())
-          err += [m.strip() for m in re.split(r'[:\n]+',str(e))]
+          e = str(e).strip()
+          logs.append(e)
+          err += [m.strip() for m in re.split(r'[:\n]+', e)]
           continue
         # fix chmod
         for dirpath, dirnames, filenames in os.walk(grouptemp):
@@ -346,7 +354,9 @@ class Extractor:
           if PureWindowsPath(name).as_posix() != name:
             dst = os.path.sep.join(PureWindowsPath(name).parts)
             dst = os.path.join(grouptemp, dst)
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            dstdir = os.path.dirname(dst)
+            if dstdir:
+              os.makedirs(dstdir, exist_ok=True)
             shutil.move(os.path.join(grouptemp, name), dst)
         # don't have a single top-level directory
         if len(os.listdir(grouptemp)) == 1:
@@ -391,15 +401,15 @@ class Extractor:
                   break
               if filecmp.cmp(other,os.path.join(dirpath,name),shallow=False):
                 logs.append(f'Group {group}, ' + \
-                            f'ignoring duplicate file: \"{outname}\"')
+                            f'ignoring duplicate file: \"{name}\"')
                 continue
             # the name matches a path we want
             if dirpath == grouptemp and \
-                  any([outname == path for path in set(need_moved.values())]):
-              src = os.path.join(dirpath, name)
-              outname += '.2'
+                  any(outname == path for path in set(need_moved.values())):
+              outname += '.renamed'
               logs.append(f'Renaming: group {group} file {name} -> {outname}')
-              shutil.move(src, os.path.join(dirpath, outname))
+              shutil.move(os.path.join(dirpath, name),
+                          os.path.join(dirpath, outname))
               name = outname
             # key is the dstname of the file, value is a list of src paths
             if outname not in files:
@@ -414,20 +424,33 @@ class Extractor:
               dst = os.path.join(xpath, need_moved[name.lower()], name)
             # put it in relative to the path it had
             else:
-              # after split have either empty or path starting with /
-              dst = os.path.dirname(src).split(grouptemp)[-1].lstrip(os.path.sep)
-              dst = os.path.join(xpath, dstname(dst), name)
+              # dirname without the group's temp prefix
+              dst = os.path.dirname(src).removeprefix(grouptemp)
+              # remove the lingering os.path.sep
+              dst = dst.lstrip(os.path.sep)
+              # remove any special chars in any of the path's parts
+              dst = os.path.sep.join([dstname(part) \
+                                      for part in dst.split(os.path.sep)])
+              # this goes into the group's final xpath
+              dst = os.path.join(xpath, dst, name)
+            # we could have a name collision
             if os.path.isfile(dst):
+              # rename the file to a name that doesn't exist
               oldname = dst.split(xpath)[-1]
+              # append a number to the file, beginning with 2
               dst = [dst, '2']
               while os.path.isfile('.'.join(dst)):
                 dst[1] = str(int(dst[1])+1)
               dst = '.'.join(dst)
+              # note that the file was renamed in the extraction log
               msg = f'Group {group} renamed {oldname} to {dst.split(xpath)[-1]}'
               logs.append(msg)
+              # note that the file was renamed in the group's sub.nfo
               with open(f'{xpath}/sub.nfo','a') as outfile:
                 outfile.write(msg+'\n')
+            # ensure the path exists
             os.makedirs(os.path.dirname(dst), exist_ok=True)
+            # move the src into the dst
             shutil.move(src, dst)
             # attempt dos2unix
             try:
