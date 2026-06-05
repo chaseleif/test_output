@@ -395,6 +395,10 @@ class Extractor:
           for name in filenames:
             # compare files if name seen before (ignore identical files)
             outname = dstname(name)
+            # a completely bad name will become empty
+            if not outname:
+              # replace a bad name with "badname"
+              outname = 'badname'
             if outname in files:
               for other in files[outname]:
                 if filecmp.cmp(other, os.path.join(dirpath,name),shallow=False):
@@ -429,8 +433,11 @@ class Extractor:
               # remove the lingering os.path.sep
               dst = dst.lstrip(os.path.sep)
               # remove any special chars in any of the path's parts
-              dst = os.path.sep.join([dstname(part) \
-                                      for part in dst.split(os.path.sep)])
+              dst = [dstname(part) for part in dst.split(os.path.sep)])
+              # if any part became empty replace it with "badname"
+              dst = [part for part in dst if dst else 'badname']
+              # rejoin it with the path separator
+              dst = os.path.sep.join(dst)
               # this goes into the group's final xpath
               dst = os.path.join(xpath, dst, name)
             # we could have a name collision
