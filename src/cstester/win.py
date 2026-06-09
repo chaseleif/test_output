@@ -790,7 +790,7 @@ class CursesScreen:
             direction = 1
             break
           # move right
-          elif c == 'KEY_RIGHT':
+          elif c == 'KEY_RIGHT' and choices:
             if (opts&WinOpt.TEXTBOX):
               # scroll the entire pane together
               if lshift+maxwidth-rshift[0] >= width:
@@ -800,7 +800,7 @@ class CursesScreen:
               # scroll the line
               rshift[hpos] += 1
               break
-          elif c == 'KEY_LEFT' and rshift[hpos] > 0:
+          elif c == 'KEY_LEFT' and choices and rshift[hpos] > 0:
             if (opts&WinOpt.TEXTBOX):
               rshift = [shmt-1 for shmt in rshift]
             else:

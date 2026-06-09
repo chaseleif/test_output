@@ -104,7 +104,7 @@ def getgroups(phasedir: str) -> List[int]:
               name.startswith('group_')]
     groups = sorted([int(group.split('_')[-1])for group in groups if \
                     group.split('_')[-1].isnumeric()])
-    return groups
+    return [str(group) for group in groups]
 
 def removecommonprefix(left: str, right: str) -> Tuple[str, str]:
   '''

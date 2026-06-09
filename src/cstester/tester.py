@@ -72,10 +72,9 @@ class CSTester:
     Returns:
       Tuple[List[str], List[str], List[str]]: (included, excluded, allgroups)
     '''
-    allgroups = [str(group) for group in getgroups(self.cfg.phasedir)]
     return (expandnumrange(self.cfg.include),
             expandnumrange(self.cfg.exclude),
-            expandnumrange(allgroups))
+            expandnumrange(','.join(getgroups(self.cfg.phasedir))))
 
   def getfilteredgroups(self) -> List[str]:
     '''
@@ -693,8 +692,8 @@ class CSTester:
           groups = self.cfg.verifiednumrange(groups)
           setattr(self.cfg.conf, attr, groups)
           c = keys.index(attr)
-          choices[h] = values[h] + (': (unset)' if not groups \
-                                                  else f': {groups}')
+          choices[hpos+1] = values[hpos+1] + (': (unset)' if not groups \
+                                                          else f': {groups}')
       elif keys[hpos] == 'freeze':
         self.freezefiles()
       elif keys[hpos] == 'mkpatch':
