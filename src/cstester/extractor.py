@@ -461,10 +461,14 @@ class Extractor:
             shutil.move(src, dst)
             # attempt dos2unix
             try:
+              # universal newlines turns any newline into \n
               with open(dst, 'r') as infile:
-                contents = [line.rstrip() for line in infile.readlines()]
+                contents = infile.read()
+              # ensure the file ends with a newline
+              if contents[-1] != '\n':
+                contents += '\n'
               with open(dst, 'w') as outfile:
-                outfile.write('\n'.join(contents)+'\n')
+                outfile.write(contents)
             # not a text file or something
             except:
               pass
@@ -472,7 +476,7 @@ class Extractor:
       shutil.move(zipname, f'{xpath}/group{group}.zip')
       # done with this group's zip
     logs.append('Extraction complete')
-    return logs
+    return logs, err
 
   def extractphasezip(self,
                       phasedir: str,
@@ -481,7 +485,7 @@ class Extractor:
                       groupre: str,
                       include: Dict[str,str],
                       exclude: List[str],
-                      title: str='Extract Phase Dir') -> Literal[-1, 0, 1]:
+                      title: str='Extract Phase Dir') -> None:
     '''
     This is the base extraction method for a zip of zips
 
@@ -497,15 +501,6 @@ class Extractor:
       include: (dict[str, str]):  Explicit map of files to destination
       exclude: (list[str]): patterns for files to not extract
       title: (str): The title for prompts
-
-    Returns:
-      Literal[-1, 0, 1]: (status)
-
-     0 = success
-
-    -1 = failure
-
-     1 = aborted
     '''
     logfile = os.path.join(phasedir, 'x.log')
     if not os.path.isfile(phasezip):
@@ -548,7 +543,7 @@ class Extractor:
       try:
         with ZipFile(phasezip, 'r') as archive:
           archive.extractall(path=tempdir)
-        logs = self.extract(tempdir, phasedir, keyfile,
+        logs, err = self.extract(tempdir, phasedir, keyfile,
                             groupre, include, exclude, steps)
       except Exception as e:
         self.scr.window(
@@ -557,11 +552,24 @@ class Extractor:
           body=[f'EXCEPTION opening/extracting: \"{phasezip}\"'],
           err=[m.strip() for m in re.split(r'[:\n]+',str(e))],
         )
-        return -1
-    if not logs:
-      return -1
-    if os.path.isdir(os.path.dirname(logfile)):
+        return
+    if logs and os.path.isdir(os.path.dirname(logfile)):
       with open(logfile, 'w') as outfile:
         outfile.write('\n'.join(logs)+'\n')
-      return 0
-    return -1
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+        title=title,
+        body=['Phasezip extracted successfully'],
+        choices=logs,
+        err=err,
+        footer='Press enter to continue . . . ',
+      )
+    else:
+      self.scr.window(
+        WinOpt.SHOWCURS|WinOpt.RETURNKEY|WinOpt.TEXTBOX,
+        title=title,
+        body=['Extraction not successful'],
+        choices=logs,
+        err=err,
+        footer='Press enter to continue . . . ',
+      )

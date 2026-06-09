@@ -600,33 +600,12 @@ class CSTester:
       elif keys[hpos] == 'extract':
         conf = self.cfg.conf
         with Extractor(self.scr) as extractor:
-          ret = extractor.extractphasezip(conf.phasedir,
-                                          conf.phasezip,
-                                          conf.keyfile,
-                                          conf.groupre_str,
-                                          conf.zipinclude_strs,
-                                          conf.zipexclude_strs)
-        # -1 error, 0 success, 1 nothing done
-        if ret == 0:
-          self.scr.window(
-            WinOpt.SHOWCURS|WinOpt.RETURNANY,
-            title=title,
-            body=['Phasezip extracted successfully'],
-          )
-        elif ret < 0:
-          self.scr.window(
-            WinOpt.SHOWCURS|WinOpt.RETURNANY,
-            title=title,
-            body=['Phasezip not extracted'],
-            err=[f'Error during extraction'],
-          )
-        else:
-          self.scr.window(
-            WinOpt.SHOWCURS|WinOpt.RETURNANY,
-            title=title,
-            body=['Phasezip not extracted'],
-            err=[f'Extraction aborted'],
-          )
+          extractor.extractphasezip(conf.phasedir,
+                                    conf.phasezip,
+                                    conf.keyfile,
+                                    conf.groupre_str,
+                                    conf.zipinclude_strs,
+                                    conf.zipexclude_strs)
       if self.cfg.has(keys[hpos]):
         v = self.cfg.get(keys[hpos])
         choices[hpos] = values[hpos] + (': (unset)' if not v else f': {v}')
