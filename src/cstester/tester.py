@@ -227,7 +227,7 @@ class CSTester:
           if not runcases:
             choices[hpos] += ': (unset)'
           else:
-            choices[hpos] += f': {', '.join([k for k in runcases.keys()])}'
+            choices[hpos] += f': {", ".join([k for k in runcases.keys()])}'
         continue
       if keys[hpos] == 'runall':
         usecases = cases
